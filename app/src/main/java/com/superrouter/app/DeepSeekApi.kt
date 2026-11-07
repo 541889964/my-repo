@@ -1,5 +1,6 @@
 package com.superrouter.app
 
+import kotlinx.coroutines.delay
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -23,19 +24,19 @@ object DeepSeekApi {
         "x-device-id" to smid, "x-rangers-id" to smid, "Accept" to "text/event-stream", "Content-Type" to "application/json"
     )
 
-    suspend fun createSessionAsync(token: String, smid: String): String? {
-        RiskGuard.awaitSessionCreate()
-        val r = createSession(token, smid)
-        RiskGuard.onResult(r != null, if (r == null) "session_create_fail" else "")
-        return r
-    }
-
     fun createSession(token: String, smid: String): String? {
         return try {
             val h = headers(token, smid)
             val req = Request.Builder().url("$BASE_URL/api/v0/chat_session/create").apply { h.forEach { (k, v) -> header(k, v) } }.post("{}".toRequestBody(jsonMedia)).build()
             client.newCall(req).execute().use { resp -> JSONObject(resp.body?.string() ?: "{}").getJSONObject("data").getJSONObject("biz_data").getJSONObject("chat_session").getString("id") }
         } catch (e: Exception) { null }
+    }
+
+    suspend fun createSessionAsync(token: String, smid: String): String? {
+        RiskGuard.awaitSessionCreate()
+        val r = createSession(token, smid)
+        RiskGuard.onResult(r != null, if (r == null) "session_create_fail" else "")
+        return r
     }
 
     fun deleteSession(token: String, smid: String, sid: String) {
@@ -64,7 +65,6 @@ object DeepSeekApi {
         } catch (e: Exception) { null }
     }
 
-    // ★ 新增：官方多模态图片上传接口
     fun uploadImage(token: String, smid: String, filePath: String): String? {
         return try {
             val file = File(filePath)
@@ -138,7 +138,19 @@ object DeepSeekApi {
                         val o = JSONObject(raw)
                         if (o.has("response_message_id")) { newPid = o.getString("response_message_id"); hasValidData = true }
                         val p = o.optString("p", ""); val v = o.optString("v", "")
-                        if (p == "accumulated_token_usage") { usage = v.toLongOrNull() ?: usage; continue }
+                        if (p == "accumulated_token_usage" || p == "token_usage" || p == "total_tokens") {
+                            val n = o.optLong("v", 0L)
+                            if (n > 0) usage = n else v.toLongOrNull()?.let { if (it > 0) usage = it }
+                            continue
+                        }
+                        if (o.has("accumulated_token_usage")) {
+                            val n = o.optLong("accumulated_token_usage", 0L)
+                            if (n > 0) usage = n
+                        }
+                        o.optJSONObject("usage")?.let { uo ->
+                            val t = uo.optLong("total_tokens", 0L)
+                            if (t > 0) usage = t
+                        }
                         if (p == "quasi_status" || p == "status" || p == "finish") continue
                         
                         if (p.startsWith("response/fragments/") && p.endsWith("/content")) {

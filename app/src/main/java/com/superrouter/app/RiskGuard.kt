@@ -7,16 +7,7 @@ import kotlin.math.max
 import kotlin.random.Random
 
 /**
- * RiskGuard —— DeepSeek 风控规避层（证据驱动版）
- *
- * 证据索引：
- *  [1] 设备指纹缺失/频繁变化 -> biz_code=11 RISK_DEVICE_DETECTED
- *  [2] 同账号多开 -> 临时封禁 1 天
- *  [3] 同 IP 多账号 -> 封号主因
- *  [4] 429 -> 遵守 Retry-After，否则指数退避 250-500ms 起，上限 8-16s
- *  [5] PoW difficulty 典型 144000，动态变化，突增是风控前置信号
- *  [6] 自然对话间隔 8-22s，连续 3 条后 45-75s 静默，凌晨 2-5 点避免高频
- *  [7] UA 在启动时固定，非每请求随机
+ * RiskGuard —— DeepSeek 内部接口风控规避层（证据驱动版）
  */
 object RiskGuard {
     private const val TAG = "RiskGuard"
@@ -33,20 +24,15 @@ object RiskGuard {
     @Volatile var rateLimitedUntil: Long = 0L
     @Volatile var authFailedUntil: Long = 0L
 
-    // PoW 难度基线
     private val powHistory = ArrayDeque<Long>()
     @Volatile var powBaseline: Long = 0L
     @Volatile var powSpike: Boolean = false
 
-    // 会话创建窗口
     private var sessionWindowStart = 0L
     private var sessionWindowCount = 0
 
-    // 连续请求计数（用于 3 条后强制静默）
     private var consecutiveCount = 0
-    private var lastConsecutiveReset = 0L
 
-    // UA 固定（启动时选一次，整个生命周期不变）
     private val FIXED_UA: String = listOf(
         "DeepSeek/2.7.1 Android/33",
         "DeepSeek/2.7.1 Android/34",
@@ -55,7 +41,6 @@ object RiskGuard {
 
     fun fixedUA(): String = FIXED_UA
 
-    // ---------- PoW 难度监控 ----------
     fun reportPowDifficulty(d: Long) {
         if (d <= 0) return
         powHistory.addLast(d)
@@ -66,13 +51,11 @@ object RiskGuard {
         if (powSpike) android.util.Log.w(TAG, "PoW 难度突增 d=$d baseline=$powBaseline")
     }
 
-    // ---------- 时间感知 ----------
     private fun isLowActivityHour(): Boolean {
         val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        return h in 2..4  // 凌晨 2-5 点
+        return h in 2..4
     }
 
-    // ---------- 429 ----------
     fun onRateLimited(retryAfterSec: Long?) {
         totalRiskHits++
         val waitSec = retryAfterSec?.coerceIn(30, 300) ?: Random.nextLong(60, 180)
@@ -90,22 +73,18 @@ object RiskGuard {
 
     fun onServerError() { failStreak++ }
 
-    // ---------- 请求前等待（证据 [4][6]） ----------
     suspend fun awaitChat() {
         val now = System.currentTimeMillis()
         if (now < rateLimitedUntil) delay(rateLimitedUntil - now)
         if (now < authFailedUntil) delay(authFailedUntil - now)
 
-        // 连续 3 条后强制 45-75s 静默（证据 [6]）
         if (consecutiveCount >= 3) {
             val silent = Random.nextLong(45_000, 75_001)
             android.util.Log.i(TAG, "连续 3 条后静默 ${silent / 1000}s")
             delay(silent)
             consecutiveCount = 0
-            lastConsecutiveReset = System.currentTimeMillis()
         }
 
-        // 动态间隔：正常 8-22s，低调/凌晨/难度突增时 15-35s（证据 [6]）
         val low = lowProfile || powSpike || isLowActivityHour()
         val minGap = if (low) Random.nextLong(15_000, 35_001) else Random.nextLong(8_000, 22_001)
         val gap = lastRequestAt.get()
@@ -144,7 +123,6 @@ object RiskGuard {
         lastRequestAt.set(System.currentTimeMillis())
     }
 
-    // ---------- 结果回调 ----------
     fun onResult(ok: Boolean, reason: String = "") {
         if (ok) {
             if (failStreak > 0) failStreak--
@@ -152,7 +130,7 @@ object RiskGuard {
             return
         }
         when {
-            reason.contains("429", true) -> { /* 已在 onRateLimited 处理 */ }
+            reason.contains("429", true) -> { }
             reason.contains("Token失效", true) || reason.contains("401", true) || reason.contains("403", true) -> onAuthFail()
             reason.contains("HTTP 5", true) -> onServerError()
             else -> failStreak++
@@ -163,7 +141,6 @@ object RiskGuard {
         }
     }
 
-    // ---------- 指数退避（证据 [4]） ----------
     fun suggestCooldownMs(reason: String): Long {
         val s = reason.lowercase()
         if (s.contains("429") || isRiskSignal(s))

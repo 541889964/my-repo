@@ -10,6 +10,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// ============================================================
+//  SuperRouter · Gold Design System
+// ============================================================
+
 // ---------- 背景层 ----------
 val DeepSeekBg         = Color(0xFF0B0A07)
 val DeepSeekSurface    = Color(0xFF141008)
@@ -23,7 +27,7 @@ val DeepSeekText       = Color(0xFFF7EFD3)
 val DeepSeekMuted      = Color(0xFF9C8F6D)
 val DeepSeekDim        = Color(0xFF5E5643)
 
-// ---------- 金主色 ----------
+// ---------- 金主色（四层） ----------
 val Gold        = Color(0xFFF5C542)
 val GoldLight   = Color(0xFFFFD86B)
 val GoldDeep    = Color(0xFFB8860B)
@@ -37,13 +41,13 @@ val DeepSeekGlow       = GoldGlow
 val DeepSeekWarning    = Color(0xFFFBBF24)
 
 // ---------- 状态色 ----------
-val StatusThink   = Color(0xFF7DD3FC)
-val StatusRun     = Gold
-val DeepSeekSuccess = Color(0xFF6EE7A0)
-val DeepSeekError   = Color(0xFFF87171)
+val StatusThink   = Color(0xFF7DD3FC)   // 思考 - 蓝青
+val StatusRun     = Gold                // 执行 - 金
+val DeepSeekSuccess = Color(0xFF6EE7A0) // 成功 - 翠绿
+val DeepSeekError   = Color(0xFFF87171) // 失败 - 绯红
 val StatusSuccess = DeepSeekSuccess
 val StatusFail    = DeepSeekError
-val StatusWait    = Color(0xFFA78BFA)
+val StatusWait    = Color(0xFFA78BFA)   // 等待 - 紫
 
 // ---------- 渐变 ----------
 val GoldGradient = Brush.horizontalGradient(
@@ -60,6 +64,15 @@ val HeroGlow = Brush.radialGradient(
     listOf(Gold.copy(alpha = 0.25f), GoldDeep.copy(alpha = 0.06f), Color.Transparent)
 )
 
+// ---------- 动效时长 ----------
+object Motion {
+    const val Fast = 140
+    const val Base = 220
+    const val Slow = 360
+    const val Breath = 1600L
+    const val Think = 1100L
+}
+
 // ---------- 圆角体系 ----------
 object Radius {
     val xs = 6.dp
@@ -70,18 +83,26 @@ object Radius {
     val pill = 999.dp
 }
 
+// ---------- Material 主题 ----------
 val AppDark = darkColorScheme(
-    primary = Gold, onPrimary = Color(0xFF141008),
+    primary = Gold,               onPrimary = Color(0xFF141008),
     primaryContainer = GoldLight, onPrimaryContainer = Color(0xFF141008),
-    secondary = GoldLight, onSecondary = Color(0xFF141008),
-    background = DeepSeekBg, onBackground = DeepSeekText,
-    surface = DeepSeekSurface, onSurface = DeepSeekText,
+    secondary = GoldLight,        onSecondary = Color(0xFF141008),
+    background = DeepSeekBg,      onBackground = DeepSeekText,
+    surface = DeepSeekSurface,    onSurface = DeepSeekText,
     surfaceVariant = DeepSeekSurfaceHigh, onSurfaceVariant = DeepSeekMuted,
-    outline = DeepSeekBorder, error = DeepSeekError, onError = Color.White
+    outline = DeepSeekBorder,
+    error = DeepSeekError,        onError = Color.White
 )
 
 val AppTypography = Typography(
+    displayLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 16.sp, fontWeight = FontWeight.Medium),
     bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 15.sp, lineHeight = 23.sp),
     bodyMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, lineHeight = 21.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    bodySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 12.sp, lineHeight = 17.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp)
 )

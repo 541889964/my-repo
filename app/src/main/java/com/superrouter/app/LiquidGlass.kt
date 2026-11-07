@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -24,20 +23,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // ============================================================
 //  Liquid Glass — 液态玻璃视觉系统
 //  结构：半透明层 + 液态流光 + 噪点 + 折射描边
-//  目标：真实玻璃质感，不用假 blur
 // ============================================================
 
-/**
- * 液态玻璃核心修饰符
- * @param flowEnabled 开启液态流光动画
- * @param tint 主体色调（推荐 Color.White 或 GoldGlow）
- */
 fun Modifier.liquidGlass(
     shape: Shape = RoundedCornerShape(Radius.md),
     tint: Color = Color.White,
@@ -66,7 +58,6 @@ fun Modifier.liquidGlass(
             val w = size.width
             val h = size.height
 
-            // 底：斜向渐变（白金 - 金 - 暗金）
             drawRect(
                 brush = Brush.linearGradient(
                     colors = listOf(
@@ -79,7 +70,6 @@ fun Modifier.liquidGlass(
                 )
             )
 
-            // 液态流光扫过
             if (flowEnabled) {
                 val sweepX = -w * 0.8f + w * 2f * phase
                 drawRect(
@@ -96,7 +86,6 @@ fun Modifier.liquidGlass(
                 )
             }
 
-            // 噪点：微小白色点，模拟玻璃微观纹理
             var seed = 9173
             for (i in 0 until 32) {
                 seed = (seed * 1103515245 + 12345) and 0x7FFFFFFF
@@ -125,7 +114,6 @@ fun Modifier.liquidGlass(
         )
 }
 
-/** 轻量版：无动画，用于列表内重复元素，性能敏感区 */
 fun Modifier.miniGlass(
     shape: Shape = RoundedCornerShape(Radius.sm),
     tint: Color = Color.White,
@@ -136,7 +124,6 @@ fun Modifier.miniGlass(
     .background(tint.copy(alpha = tintAlpha))
     .border(1.dp, Gold.copy(alpha = strokeAlpha), shape)
 
-/** 液态玻璃容器 */
 @Composable
 fun GlassBox(
     modifier: Modifier = Modifier,
@@ -154,25 +141,6 @@ fun GlassBox(
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .liquidGlass(shape, tint, tintAlpha, strokeAlpha, flowEnabled),
         contentAlignment = contentAlignment,
-        content = content
-    )
-}
-
-/** 液态玻璃胶囊 */
-@Composable
-fun GlassPill(
-    modifier: Modifier = Modifier,
-    tint: Color = Color.White,
-    onClick: (() -> Unit)? = null,
-    content: @Composable BoxScope.() -> Unit
-) {
-    GlassBox(
-        modifier = modifier,
-        shape = RoundedCornerShape(Radius.pill),
-        tint = tint,
-        tintAlpha = 0.10f,
-        strokeAlpha = 0.45f,
-        onClick = onClick,
         content = content
     )
 }
