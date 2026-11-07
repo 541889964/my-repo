@@ -151,8 +151,6 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                     onTree = { showTree = true },
                     onCool = { showCool = true },
                     onToken = { showToken = true },
-                    onPalette = { showPalette = true },
-                    onSettings = { showSettings = true },
                     onPalette = { showPalette = true }
                 )
             } else {
@@ -180,6 +178,7 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     showDelete?.let { sid -> DeleteDialog(vm, sid) { showDelete = null } }
     if (showRepo) RepoDialog(vm) { showRepo = false }
     if (showSettings) SettingsDialog(vm) { showSettings = false }
+    
     CommandPalette(
         vm = vm,
         visible = showPalette,
@@ -189,17 +188,12 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         onTree = { showTree = true },
         onCool = { showCool = true },
         onToken = { showToken = true },
-                    onPalette = { showPalette = true },
-                    onSettings = { showSettings = true },
         onSettings = { showSettings = true },
         onTogglePhone = { UiState.forceForm = FormFactor.Phone },
         onToggleTablet = { UiState.forceForm = FormFactor.Tablet }
     )
 }
 
-// ============================================================
-//  PhoneScreen — 手机模式主界面
-// ============================================================
 @Composable
 fun PhoneScreen(
     vm: ChatVM,
