@@ -102,7 +102,7 @@ fun TabletSidebar(
                     }
                 }
 
-                Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient.copy(alpha = 0.25f)))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
 
                 Column(Modifier.padding(16.dp)) {
                     Row(

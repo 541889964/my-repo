@@ -151,6 +151,8 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                     onTree = { showTree = true },
                     onCool = { showCool = true },
                     onToken = { showToken = true },
+                    onPalette = { showPalette = true },
+                    onSettings = { showSettings = true },
                     onPalette = { showPalette = true }
                 )
             } else {
@@ -161,7 +163,9 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                     onLan = { showLan = true },
                     onTree = { showTree = true },
                     onCool = { showCool = true },
-                    onToken = { showToken = true }
+                    onToken = { showToken = true },
+                    onPalette = { showPalette = true },
+                    onSettings = { showSettings = true }
                 )
             }
         }
@@ -185,6 +189,8 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         onTree = { showTree = true },
         onCool = { showCool = true },
         onToken = { showToken = true },
+                    onPalette = { showPalette = true },
+                    onSettings = { showSettings = true },
         onSettings = { showSettings = true },
         onTogglePhone = { UiState.forceForm = FormFactor.Phone },
         onToggleTablet = { UiState.forceForm = FormFactor.Tablet }
@@ -413,7 +419,7 @@ fun TimelineRunCard(run: AgentRun) {
                 }
                 Spacer(Modifier.width(1.dp))
                 if (expanded && run.steps.isNotEmpty()) {
-                    Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(GoldGradient.copy(alpha = 0.4f)))
+                    Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(GoldGradient))
                 }
             }
             Spacer(Modifier.width(10.dp))
@@ -679,7 +685,7 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
                     }
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient.copy(alpha = 0.25f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
             Column(Modifier.padding(16.dp)) {
                 Row(
                     Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(GoldGradient).clickable { onNew() },

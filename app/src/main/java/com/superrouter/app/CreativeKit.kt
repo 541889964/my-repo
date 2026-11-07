@@ -190,7 +190,7 @@ fun CommandPalette(
                                 Text("长按 Logo 或点空白关闭", color = DeepSeekMuted, fontSize = 10.sp)
                             }
                         }
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient.copy(alpha = 0.3f)))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
                         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             items(commands) { c ->
                                 Row(
