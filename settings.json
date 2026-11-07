@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "github": {
+    "username": "541889964",
+    "token": "",
+    "auto_name_hint": "\u7528 AI \u6839\u636e\u9879\u76ee\u5185\u5bb9\u7ed9\u4ed3\u5e93\u53d6\u540d\uff0c\u8f93\u51fa\u82f1\u6587\u5c0f\u5199+\u8fde\u5b57\u7b26\uff0c2-4 \u4e2a\u5355\u8bcd"
+  },
+  "agent": {
+    "default_workdir": "/sdcard/MT2/workspace"
+  },
+  "projects": {
+    "/sdcard/MT2/SuperRouter": {
+      "repo": "superrouter",
+      "private": true,
+      "created": 1793795778
+    }
+  },
+  "notes": "\u9996\u6b21\u63a8\u9001\u65f6\uff0c\u5982\u679c\u67d0\u9879\u76ee repo \u4e3a\u7a7a\uff0cAPP \u4f1a\u8c03 AI \u751f\u6210\u4ed3\u5e93\u540d\uff0c\u7528\u6237\u786e\u8ba4\u540e\u5199\u5165 projects \u6620\u5c04"
+}

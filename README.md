@@ -1,2 +1,0 @@
-# my-repo
-Auto generated

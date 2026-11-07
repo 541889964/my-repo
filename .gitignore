@@ -1,0 +1,10 @@
+.gradle/
+build/
+app/build/
+.idea/
+*.iml
+local.properties
+settings.json
+GitHubToken.txt
+Token.txt
+用户名.txt
