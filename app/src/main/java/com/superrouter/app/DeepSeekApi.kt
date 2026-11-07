@@ -23,6 +23,13 @@ object DeepSeekApi {
         "x-device-id" to smid, "x-rangers-id" to smid, "Accept" to "text/event-stream", "Content-Type" to "application/json"
     )
 
+    suspend fun createSessionAsync(token: String, smid: String): String? {
+        RiskGuard.awaitSessionCreate()
+        val r = createSession(token, smid)
+        RiskGuard.onResult(r != null, if (r == null) "session_create_fail" else "")
+        return r
+    }
+
     fun createSession(token: String, smid: String): String? {
         return try {
             val h = headers(token, smid)
