@@ -167,7 +167,9 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                                 onClose = { isPhoneDrawerOpen = false },
                                 onNew = { isPhoneDrawerOpen = false; showRepo = true },
                                 onSettings = { isPhoneDrawerOpen = false; showSettings = true }
-                            )
+                            ,
+                onDelete = { showDelete = it }
+            )
                         }
                     }
                 }
@@ -542,7 +544,9 @@ fun GlassInputBar(vm: ChatVM) {
 }
 
 @Composable
-fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onDelete: (String) -> Unit) {
+fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: (,
+                onDelete = { showDelete = it }
+            ) -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onDelete: (String) -> Unit) {
     val sessions by vm.sessions.collectAsState()
     Box(Modifier.fillMaxHeight().width(300.dp).background(DeepSeekBg.copy(alpha = 0.95f))) {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.04f)))))

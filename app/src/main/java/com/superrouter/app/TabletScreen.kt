@@ -56,7 +56,9 @@ fun TabletScreen(
                 current = current,
                 onNew = onNew,
                 onSettings = onSettings,
-                modifier = Modifier.width(320.dp).fillMaxHeight()
+                modifier = Modifier.width(320.dp,
+                onDelete = { showDelete = it }
+            ).fillMaxHeight()
             )
         }
 
@@ -87,7 +89,9 @@ fun TabletScreen(
 fun TabletSidebar(
     vm: ChatVM,
     current: Session?,
-    onNew: () -> Unit,
+    onNew: (,
+                onDelete = { showDelete = it }
+            ) -> Unit,
     onSettings: () -> Unit,
     onDelete: (String) -> Unit,
     modifier: Modifier = Modifier
