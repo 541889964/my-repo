@@ -21,14 +21,14 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,16 +42,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
-import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -63,12 +61,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.io.File
+import android.content.res.Configuration
 
-// ============================================================
-//  MainActivity — 入口
-// ============================================================
 class MainActivity : ComponentActivity() {
     private val storagePerm = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
     private val notifPerm = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -102,9 +97,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ============================================================
-//  RootScreen — 决定手机/平板，套壁纸 + 抽屉 + 主界面
-// ============================================================
 @Composable
 fun RootScreen(vm: ChatVM = viewModel()) {
     val ctx = LocalContext.current
@@ -117,9 +109,10 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     val currentId by vm.currentId.collectAsState()
     val current = sessions.find { it.id == currentId }
 
-    var drawerOpen by remember { mutableStateOf(false) }
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    var isSidebarOpen by remember { mutableStateOf(true) }
+    // 平板侧栏展开状态
+    var isTabletSidebarOpen by remember { mutableStateOf(true) }
+    // 手机侧栏展开状态
+    var isPhoneDrawerOpen by remember { mutableStateOf(false) }
 
     var showRepo by remember { mutableStateOf(false) }
     var showTree by remember { mutableStateOf(false) }
@@ -136,50 +129,48 @@ fun RootScreen(vm: ChatVM = viewModel()) {
 
         if (form == FormFactor.Tablet) {
             TabletScreen(
-                vm = vm,
-                current = current,
-                isSidebarOpen = isSidebarOpen,
-                onToggleSidebar = { isSidebarOpen = !isSidebarOpen },
-                onNew = { showRepo = true },
-                onSettings = { showSettings = true },
-                onLan = { showLan = true },
-                onTree = { showTree = true },
-                onCool = { showCool = true },
-                onToken = { showToken = true },
+                vm = vm, current = current,
+                isSidebarOpen = isTabletSidebarOpen, 
+                onToggleSidebar = { isTabletSidebarOpen = !isTabletSidebarOpen },
+                onNew = { showRepo = true }, onSettings = { showSettings = true },
+                onLan = { showLan = true }, onTree = { showTree = true },
+                onCool = { showCool = true }, onToken = { showToken = true },
                 onPalette = { showPalette = true }
             )
         } else {
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                gesturesEnabled = false, 
-                drawerContent = {
-                    GlassSessionDrawer(
-                        vm = vm,
-                        currentId = currentId,
-                        onClose = { drawerOpen = false },
-                        onNew = { drawerOpen = false; showRepo = true },
-                        onSettings = { drawerOpen = false; showSettings = true }
-                    )
-                }
+            // 手机主界面
+            PhoneScreen(
+                vm = vm, current = current,
+                onMenu = { isPhoneDrawerOpen = true },
+                onLan = { showLan = true }, onTree = { showTree = true },
+                onCool = { showCool = true }, onToken = { showToken = true },
+                onPalette = { showPalette = true }, onSettings = { showSettings = true }
+            )
+            
+            // 手机侧滑：绝对保证能滑进滑出，不留残影
+            AnimatedVisibility(
+                visible = isPhoneDrawerOpen,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
-                PhoneScreen(
-                    vm = vm,
-                    current = current,
-                    onMenu = { drawerOpen = true },
-                    onLan = { showLan = true },
-                    onTree = { showTree = true },
-                    onCool = { showCool = true },
-                    onToken = { showToken = true },
-                    onPalette = { showPalette = true },
-                    onSettings = { showSettings = true }
-                )
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).clickable { isPhoneDrawerOpen = false }) {
+                    // 阻止点击穿透
+                    Box(Modifier.fillMaxHeight().width(300.dp).clickable(enabled = false) {}) {
+                        AnimatedVisibility(
+                            visible = isPhoneDrawerOpen,
+                            enter = slideInHorizontally(initialOffsetX = { -it }),
+                            exit = slideOutHorizontally(targetOffsetX = { -it })
+                        ) {
+                            GlassSessionDrawer(
+                                vm = vm, currentId = currentId,
+                                onClose = { isPhoneDrawerOpen = false },
+                                onNew = { isPhoneDrawerOpen = false; showRepo = true },
+                                onSettings = { isPhoneDrawerOpen = false; showSettings = true }
+                            )
+                        }
+                    }
+                }
             }
-        }
-    }
-
-    LaunchedEffect(drawerOpen) { 
-        if (form == FormFactor.Phone) {
-            if (drawerOpen) drawerState.open() else drawerState.close() 
         }
     }
 
@@ -192,17 +183,11 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     if (showSettings) SettingsDialog(vm) { showSettings = false }
     
     CommandPalette(
-        vm = vm,
-        visible = showPalette,
-        onDismiss = { showPalette = false },
-        onNewProject = { showRepo = true },
-        onLan = { showLan = true },
-        onTree = { showTree = true },
-        onCool = { showCool = true },
-        onToken = { showToken = true },
-        onSettings = { showSettings = true },
-        onTogglePhone = { },
-        onToggleTablet = { }
+        vm = vm, visible = showPalette, onDismiss = { showPalette = false },
+        onNewProject = { showRepo = true }, onLan = { showLan = true },
+        onTree = { showTree = true }, onCool = { showCool = true },
+        onToken = { showToken = true }, onSettings = { showSettings = true },
+        onTogglePhone = { }, onToggleTablet = { }
     )
 }
 
@@ -231,10 +216,7 @@ fun PhoneScreen(
     }
 }
 
-// ============================================================
-//  PhoneHeader — 玻璃顶栏 + Agent Orb
-// ============================================================
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PhoneHeader(
     current: Session?,
@@ -256,10 +238,7 @@ fun PhoneHeader(
         GlassBox(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(Radius.xl),
-            tint = Color.White,
-            tintAlpha = 0.06f,
-            strokeAlpha = 0.35f,
-            flowEnabled = false
+            tint = Color.White, tintAlpha = 0.06f, strokeAlpha = 0.35f, flowEnabled = false
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
@@ -272,24 +251,17 @@ fun PhoneHeader(
 
                 Box(
                     Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(GoldGradient)
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = { onPalette() }
-                        ),
+                        .combinedClickable(onClick = {}, onLongClick = { onPalette() }),
                     contentAlignment = Alignment.Center
                 ) { Text("S", color = Color(0xFF1A1710), fontSize = 18.sp, fontWeight = FontWeight.Black) }
 
                 Spacer(Modifier.width(10.dp))
 
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        "SUPERROUTER", color = Gold, fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp
-                    )
+                    Text("SUPERROUTER", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            current?.title ?: "就绪",
-                            color = DeepSeekText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            current?.title ?: "就绪", color = DeepSeekText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                         Spacer(Modifier.width(6.dp))
@@ -341,9 +313,6 @@ fun AgentOrb(state: OrbState, size: Dp = 8.dp) {
     }
 }
 
-// ============================================================
-//  ChatList — 消息时间线
-// ============================================================
 @Composable
 fun ChatList(vm: ChatVM, current: Session?, modifier: Modifier = Modifier) {
     val activeRun by vm.activeRun.collectAsState()
@@ -355,8 +324,7 @@ fun ChatList(vm: ChatVM, current: Session?, modifier: Modifier = Modifier) {
     }
 
     LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxSize(),
+        state = listState, modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -373,11 +341,7 @@ fun ChatList(vm: ChatVM, current: Session?, modifier: Modifier = Modifier) {
 fun EmptyHero() {
     Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            GlassBox(
-                shape = RoundedCornerShape(24.dp),
-                tintAlpha = 0.10f, strokeAlpha = 0.5f,
-                modifier = Modifier.size(88.dp)
-            ) {
+            GlassBox(shape = RoundedCornerShape(24.dp), tintAlpha = 0.10f, strokeAlpha = 0.5f, modifier = Modifier.size(88.dp)) {
                 Icon(Icons.Default.Bolt, null, tint = GoldGlow, modifier = Modifier.size(46.dp))
             }
             Spacer(Modifier.height(20.dp))
@@ -395,11 +359,7 @@ fun TimelineRunCard(run: AgentRun) {
 
     Column(Modifier.fillMaxWidth().animateContentSize()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            GlassBox(
-                shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp),
-                tint = Gold.copy(alpha = 0.35f), tintAlpha = 0.14f,
-                strokeAlpha = 0.45f, flowEnabled = false
-            ) {
+            GlassBox(shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp), tint = Gold.copy(alpha = 0.35f), tintAlpha = 0.14f, strokeAlpha = 0.45f, flowEnabled = false) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                     if (!run.chineseName.isNullOrBlank()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -430,30 +390,17 @@ fun TimelineRunCard(run: AgentRun) {
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Row(
-                    Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        if (run.running) "执行中 · ${run.steps.size} 步" else "已完成 · ${run.steps.size} 步",
-                        color = DeepSeekMuted, fontSize = 11.sp
-                    )
+                Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (run.running) "执行中 · ${run.steps.size} 步" else "已完成 · ${run.steps.size} 步", color = DeepSeekMuted, fontSize = 11.sp)
                     Spacer(Modifier.weight(1f))
                     Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = DeepSeekMuted, modifier = Modifier.size(16.dp))
                 }
 
-                AnimatedVisibility(
-                    visible = expanded,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
+                AnimatedVisibility(visible = expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Column {
                         run.steps.forEach { step ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    Modifier.size(7.dp).clip(CircleShape)
-                                        .background(if (step.success) DeepSeekSuccess else DeepSeekError)
-                                )
+                                Box(Modifier.size(7.dp).clip(CircleShape).background(if (step.success) DeepSeekSuccess else DeepSeekError))
                                 Spacer(Modifier.width(8.dp))
                                 Text(step.actionName.take(40), color = DeepSeekMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
@@ -465,32 +412,19 @@ fun TimelineRunCard(run: AgentRun) {
                     Spacer(Modifier.height(6.dp))
                     Text("下载 ${(run.downloadProgress * 100).toInt()}%", color = Gold, fontSize = 10.sp)
                     Spacer(Modifier.height(2.dp))
-                    LinearProgressIndicator(
-                        progress = run.downloadProgress,
-                        modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)),
-                        color = Gold, trackColor = DeepSeekSurfaceHigh
-                    )
+                    LinearProgressIndicator(progress = run.downloadProgress, modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)), color = Gold, trackColor = DeepSeekSurfaceHigh)
                 }
 
                 if (!run.running && run.finalReply != null) {
                     Spacer(Modifier.height(8.dp))
-                    GlassBox(
-                        shape = RoundedCornerShape(Radius.lg),
-                        tint = Color.White, tintAlpha = 0.06f, strokeAlpha = 0.3f, flowEnabled = false,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    GlassBox(shape = RoundedCornerShape(Radius.lg), tint = Color.White, tintAlpha = 0.06f, strokeAlpha = 0.3f, flowEnabled = false, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(14.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                Box(
-                                    Modifier.size(24.dp).clip(CircleShape)
-                                        .background(DeepSeekSurfaceHigh.copy(alpha = 0.6f))
-                                        .clickable {
-                                            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            cm.setPrimaryClip(ClipData.newPlainText("AI", run.finalReply))
-                                            android.widget.Toast.makeText(ctx, "已复制", android.widget.Toast.LENGTH_SHORT).show()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) { Icon(Icons.Default.ContentCopy, null, tint = Gold, modifier = Modifier.size(12.dp)) }
+                                Box(Modifier.size(24.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.6f)).clickable {
+                                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("AI", run.finalReply))
+                                    android.widget.Toast.makeText(ctx, "已复制", android.widget.Toast.LENGTH_SHORT).show()
+                                }, contentAlignment = Alignment.Center) { Icon(Icons.Default.ContentCopy, null, tint = Gold, modifier = Modifier.size(12.dp)) }
                             }
                             Text(run.finalReply, color = DeepSeekText, fontSize = 14.sp)
                         }
@@ -501,9 +435,6 @@ fun TimelineRunCard(run: AgentRun) {
     }
 }
 
-// ============================================================
-//  GlassStatusBar — 状态按钮 + 记忆条
-// ============================================================
 @Composable
 fun GlassStatusBar(vm: ChatVM, onToken: () -> Unit) {
     val deepThink by vm.deepThink.collectAsState()
@@ -528,43 +459,10 @@ fun GlassStatusBar(vm: ChatVM, onToken: () -> Unit) {
             OverlaySeg(overlayMode, onChange = { vm.setOverlayMode(it) })
         }
         Spacer(Modifier.height(4.dp))
-        val risk = remember { RiskGuard.snapshot() }
-        if (risk.failStreak > 0 || risk.lowProfile || risk.rateLimitedRemainSec > 0 || risk.powSpike) {
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(6.dp).clip(CircleShape).background(
-                    when {
-                        risk.rateLimitedRemainSec > 0 -> DeepSeekError
-                        risk.powSpike -> DeepSeekWarning
-                        risk.lowProfile -> DeepSeekWarning
-                        else -> DeepSeekError
-                    }
-                ))
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    when {
-                        risk.rateLimitedRemainSec > 0 -> "429 冷却 ${risk.rateLimitedRemainSec}s"
-                        risk.powSpike -> "PoW 难度突增 · 已降速"
-                        risk.lowProfile -> "低调模式 · 连败${risk.failStreak}"
-                        else -> "风控预警 · 连败${risk.failStreak}"
-                    },
-                    color = if (risk.rateLimitedRemainSec > 0) DeepSeekError else DeepSeekWarning,
-                    fontSize = 9.sp
-                )
-                if (risk.lowActivityHour) {
-                    Spacer(Modifier.width(6.dp))
-                    Text("凌晨低频", color = DeepSeekDim, fontSize = 9.sp)
-                }
-            }
-        }
         Row(Modifier.fillMaxWidth().clickable { onToken() }, verticalAlignment = Alignment.CenterVertically) {
             Text("记忆", color = DeepSeekMuted, fontSize = 9.sp)
             Spacer(Modifier.width(6.dp))
-            LinearProgressIndicator(
-                progress = pct,
-                modifier = Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(1.dp)),
-                color = if (pct > 0.8f) DeepSeekError else Gold,
-                trackColor = DeepSeekSurfaceHigh.copy(alpha = 0.6f)
-            )
+            LinearProgressIndicator(progress = pct, modifier = Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(1.dp)), color = if (pct > 0.8f) DeepSeekError else Gold, trackColor = DeepSeekSurfaceHigh)
             Spacer(Modifier.width(6.dp))
             Text("${(pct * 100).toInt()}% · ${maxSteps}步", color = DeepSeekMuted, fontSize = 9.sp)
         }
@@ -573,14 +471,7 @@ fun GlassStatusBar(vm: ChatVM, onToken: () -> Unit) {
 
 @Composable
 fun GlassToggle(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, on: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.clip(RoundedCornerShape(Radius.pill))
-            .background(if (on) Gold.copy(alpha = 0.22f) else DeepSeekSurfaceHigh.copy(alpha = 0.55f))
-            .border(1.dp, if (on) Gold.copy(alpha = 0.65f) else DeepSeekBorder, RoundedCornerShape(Radius.pill))
-            .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.clip(RoundedCornerShape(Radius.pill)).background(if (on) Gold.copy(alpha = 0.22f) else DeepSeekSurfaceHigh.copy(alpha = 0.55f)).border(1.dp, if (on) Gold.copy(alpha = 0.65f) else DeepSeekBorder, RoundedCornerShape(Radius.pill)).clickable { onClick() }.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = if (on) Gold else DeepSeekMuted, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(4.dp))
         Text(label, color = if (on) Gold else DeepSeekMuted, fontSize = 10.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
@@ -589,31 +480,16 @@ fun GlassToggle(label: String, icon: androidx.compose.ui.graphics.vector.ImageVe
 
 @Composable
 fun OverlaySeg(current: Int, onChange: (Int) -> Unit) {
-    Row(
-        Modifier.clip(RoundedCornerShape(Radius.pill))
-            .background(DeepSeekSurfaceHigh.copy(alpha = 0.6f))
-            .border(1.dp, DeepSeekBorder, RoundedCornerShape(Radius.pill))
-            .padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.clip(RoundedCornerShape(Radius.pill)).background(DeepSeekSurfaceHigh.copy(alpha = 0.6f)).border(1.dp, DeepSeekBorder, RoundedCornerShape(Radius.pill)).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
         listOf("窗", "岛", "关").forEachIndexed { i, label ->
             val on = i == current
-            Box(
-                Modifier.clip(RoundedCornerShape(Radius.pill))
-                    .background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
-                    .clickable { onChange(i) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.clip(RoundedCornerShape(Radius.pill)).background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))).clickable { onChange(i) }.padding(horizontal = 8.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
                 Text(label, color = if (on) Color(0xFF1A1710) else DeepSeekMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-// ============================================================
-//  GlassInputBar — 玻璃输入胶囊
-// ============================================================
 @Composable
 fun GlassInputBar(vm: ChatVM) {
     val running by vm.running.collectAsState()
@@ -622,17 +498,11 @@ fun GlassInputBar(vm: ChatVM) {
     val current = sessions.find { it.id == currentId }
     var input by remember { mutableStateOf("") }
 
-    Row(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        GlassBox(
-            shape = RoundedCornerShape(Radius.xl),
-            tint = Color.White,
-            tintAlpha = if (input.isNotBlank()) 0.12f else 0.06f,
-            strokeAlpha = if (input.isNotBlank()) 0.55f else 0.32f,
-            flowEnabled = input.isNotBlank(),
-            modifier = Modifier.weight(1f)
+    Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
+        // 改成普通 Box + border，确保焦点不被拦截
+        Box(
+            Modifier.weight(1f).clip(RoundedCornerShape(Radius.xl)).background(DeepSeekSurfaceHigh)
+                .border(1.dp, if (input.isNotBlank()) Gold.copy(alpha = 0.6f) else DeepSeekBorder, RoundedCornerShape(Radius.xl))
         ) {
             BasicTextField(
                 value = input,
@@ -641,6 +511,7 @@ fun GlassInputBar(vm: ChatVM) {
                 cursorBrush = SolidColor(Gold),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
                 maxLines = 5,
+                keyboardOptions = KeyboardOptions.Default,
                 decorationBox = { inner ->
                     if (input.isEmpty()) Text("要让 AI 做什么？", color = DeepSeekMuted, fontSize = 15.sp)
                     inner()
@@ -662,24 +533,17 @@ fun GlassInputBar(vm: ChatVM) {
             }
         } else {
             val ok = input.isNotBlank()
-            Box(
-                Modifier.size(50.dp).clip(CircleShape)
-                    .background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh)))
-                    .clickable { if (ok) { vm.send(input); input = "" } },
-                contentAlignment = Alignment.Center
-            ) { Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp)) }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh))).clickable { if (ok) { vm.send(input); input = "" } }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp))
+            }
         }
     }
 }
 
-// ============================================================
-//  GlassSessionDrawer — 玻璃抽屉
-// ============================================================
 @Composable
 fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit) {
     val sessions by vm.sessions.collectAsState()
-    Box(Modifier.fillMaxWidth(0.82f).fillMaxHeight()) {
-        Box(Modifier.fillMaxSize().background(DeepSeekBg.copy(alpha = 0.85f)))
+    Box(Modifier.fillMaxHeight().width(300.dp).background(DeepSeekBg.copy(alpha = 0.95f))) {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.04f)))))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -696,40 +560,20 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
             Column(Modifier.padding(16.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(GoldGradient).clickable { onNew() },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center
-                ) {
+                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(GoldGradient).clickable { onNew() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Add, null, tint = Color(0xFF1A1710), modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("新建项目", color = Color(0xFF1A1710), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Text(
-                "会话", color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-            )
+            Text("会话", color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 items(sessions.reversed()) { s ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(if (s.id == currentId) Gold.copy(alpha = 0.10f) else Color.Transparent)
-                            .border(1.dp, if (s.id == currentId) Gold.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(Radius.md))
-                            .clickable { vm.selectSession(s.id); onClose() }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(Radius.md)).background(if (s.id == currentId) Gold.copy(alpha = 0.10f) else Color.Transparent).border(1.dp, if (s.id == currentId) Gold.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(Radius.md)).clickable { vm.selectSession(s.id); onClose() }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(if (s.id == currentId) Gold else DeepSeekBorder))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                s.title,
-                                color = if (s.id == currentId) DeepSeekText else DeepSeekMuted,
-                                fontSize = 14.sp,
-                                fontWeight = if (s.id == currentId) FontWeight.SemiBold else FontWeight.Normal,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
+                            Text(s.title, color = if (s.id == currentId) DeepSeekText else DeepSeekMuted, fontSize = 14.sp, fontWeight = if (s.id == currentId) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.repoName} · ${s.accumulatedTokens}t", color = DeepSeekMuted, fontSize = 10.sp)
                         }
                         if (s.isProtected) Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(12.dp))
@@ -737,14 +581,7 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
                 }
             }
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md))
-                        .background(DeepSeekSurfaceHigh.copy(alpha = 0.6f))
-                        .border(1.dp, DeepSeekBorder, RoundedCornerShape(Radius.md))
-                        .clickable { onSettings() }
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(DeepSeekSurfaceHigh.copy(alpha = 0.6f)).border(1.dp, DeepSeekBorder, RoundedCornerShape(Radius.md)).clickable { onSettings() }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Settings, null, tint = Gold, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(10.dp))
                     Text("外观与壁纸", color = DeepSeekText, fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -755,9 +592,6 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
     }
 }
 
-// ============================================================
-//  Dialogs（玻璃配色，功能保留）
-// ============================================================
 @Composable
 fun CoolDialog(vm: ChatVM, onDismiss: () -> Unit) {
     val minMs by vm.cooldownMinMs.collectAsState()
@@ -783,21 +617,13 @@ fun CoolDialog(vm: ChatVM, onDismiss: () -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("0~0", "0.5~3", "1~5", "3~10").forEach { p ->
                         val parts = p.split("~")
-                        Box(Modifier.clip(RoundedCornerShape(Radius.sm))
-                            .background(DeepSeekSurfaceHigh)
-                            .border(1.dp, Gold.copy(alpha = 0.3f), RoundedCornerShape(Radius.sm))
-                            .clickable { minStr = parts[0]; maxStr = parts[1] }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) { Text(p, color = Gold, fontSize = 11.sp) }
+                        Box(Modifier.clip(RoundedCornerShape(Radius.sm)).background(DeepSeekSurfaceHigh).border(1.dp, Gold.copy(alpha = 0.3f), RoundedCornerShape(Radius.sm)).clickable { minStr = parts[0]; maxStr = parts[1] }.padding(horizontal = 10.dp, vertical = 6.dp)) { Text(p, color = Gold, fontSize = 11.sp) }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                vm.setCooldownRange((minStr.toDoubleOrNull() ?: 0.0) * 1000, (maxStr.toDoubleOrNull() ?: 0.0) * 1000)
-                onDismiss()
-            }) { Text("保存", color = Gold, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = { vm.setCooldownRange((minStr.toDoubleOrNull() ?: 0.0) * 1000, (maxStr.toDoubleOrNull() ?: 0.0) * 1000); onDismiss() }) { Text("保存", color = Gold, fontWeight = FontWeight.Bold) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
@@ -808,8 +634,7 @@ fun CoolDialog(vm: ChatVM, onDismiss: () -> Unit) {
 fun GlassInputField(value: String, onChange: (String) -> Unit, placeholder: String, numeric: Boolean = false) {
     Surface(shape = RoundedCornerShape(Radius.sm), color = DeepSeekSurfaceHigh, border = BorderStroke(1.dp, DeepSeekBorder)) {
         BasicTextField(
-            value = value, onValueChange = onChange,
-            textStyle = TextStyle(color = DeepSeekText, fontSize = 14.sp),
+            value = value, onValueChange = onChange, textStyle = TextStyle(color = DeepSeekText, fontSize = 14.sp),
             cursorBrush = SolidColor(Gold),
             keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
@@ -828,26 +653,13 @@ fun LanDialog(vm: ChatVM, onDismiss: () -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(5000); now = System.currentTimeMillis() } }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(Radius.xl),
-            color = DeepSeekSurface.copy(alpha = 0.95f),
-            border = BorderStroke(1.dp, Gold.copy(alpha = 0.45f)),
-            modifier = Modifier.padding(20.dp).fillMaxWidth().animateContentSize()
-        ) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(Radius.xl), color = DeepSeekSurface.copy(alpha = 0.95f), border = BorderStroke(1.dp, Gold.copy(alpha = 0.45f)), modifier = Modifier.padding(20.dp).fillMaxWidth().animateContentSize()) {
             Column(Modifier.padding(20.dp).heightIn(max = 560.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(GoldGradient), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Wifi, null, tint = Color(0xFF1A1710), modifier = Modifier.size(20.dp))
-                    }
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Icon(Icons.Default.Wifi, null, tint = Color(0xFF1A1710), modifier = Modifier.size(20.dp)) }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("局域网桥接", color = Gold, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text("Key 调用即用", color = DeepSeekMuted, fontSize = 10.sp)
-                    }
+                    Column(Modifier.weight(1f)) { Text("局域网桥接", color = Gold, fontSize = 17.sp, fontWeight = FontWeight.Bold); Text("Key 调用即用", color = DeepSeekMuted, fontSize = 10.sp) }
                     Box(Modifier.size(8.dp).clip(CircleShape).background(if (LanServer.isRunning()) DeepSeekSuccess else DeepSeekError))
                     Spacer(Modifier.width(6.dp))
                     Text(if (LanServer.isRunning()) "在线" else "离线", color = if (LanServer.isRunning()) DeepSeekSuccess else DeepSeekError, fontSize = 11.sp)
@@ -873,9 +685,7 @@ fun LanDialog(vm: ChatVM, onDismiss: () -> Unit) {
                             Spacer(Modifier.width(6.dp))
                             Text("API KEY", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                             Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { vm.refreshLanKey() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.height(22.dp)) {
-                                Text("刷新", color = Gold, fontSize = 10.sp)
-                            }
+                            TextButton(onClick = { vm.refreshLanKey() }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.height(22.dp)) { Text("刷新", color = Gold, fontSize = 10.sp) }
                         }
                         Text(key, color = Gold, fontSize = 18.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                         Text("X-Api-Key: <KEY>", color = DeepSeekMuted, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
@@ -884,34 +694,26 @@ fun LanDialog(vm: ChatVM, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text("设备 (${devices.size})", color = DeepSeekText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                if (devices.isEmpty()) {
-                    Text("暂无设备", color = DeepSeekMuted, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
-                } else {
+                if (devices.isEmpty()) { Text("暂无设备", color = DeepSeekMuted, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp)) } else {
                     LazyColumn(Modifier.heightIn(max = 200.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(devices, key = { it.ip }) { d ->
                             Surface(shape = RoundedCornerShape(Radius.sm), color = DeepSeekSurfaceHigh, border = BorderStroke(1.dp, if (d.banned) DeepSeekError.copy(alpha = 0.4f) else DeepSeekBorder)) {
                                 Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.size(26.dp).clip(CircleShape).background((if (d.banned) DeepSeekError else Gold).copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                                        Icon(if (d.banned) Icons.Default.Block else Icons.Default.Smartphone, null, tint = if (d.banned) DeepSeekError else Gold, modifier = Modifier.size(13.dp))
-                                    }
+                                    Box(Modifier.size(26.dp).clip(CircleShape).background((if (d.banned) DeepSeekError else Gold).copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { Icon(if (d.banned) Icons.Default.Block else Icons.Default.Smartphone, null, tint = if (d.banned) DeepSeekError else Gold, modifier = Modifier.size(13.dp)) }
                                     Spacer(Modifier.width(8.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(d.ip, color = if (d.banned) DeepSeekError else DeepSeekText, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                                         val ago = ((now - d.lastSeen) / 1000).coerceAtLeast(0)
                                         Text("${d.requests} 次 · ${ago}s前", color = DeepSeekMuted, fontSize = 9.sp)
                                     }
-                                    TextButton(onClick = { if (d.banned) LanServer.unkick(d.ip) else LanServer.kick(d.ip) }) {
-                                        Text(if (d.banned) "恢复" else "踢出", color = if (d.banned) DeepSeekSuccess else DeepSeekError, fontSize = 11.sp)
-                                    }
+                                    TextButton(onClick = { if (d.banned) LanServer.unkick(d.ip) else LanServer.kick(d.ip) }) { Text(if (d.banned) "恢复" else "踢出", color = if (d.banned) DeepSeekSuccess else DeepSeekError, fontSize = 11.sp) }
                                 }
                             }
                         }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("关闭", color = DeepSeekMuted, fontSize = 12.sp) }
-                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextButton(onClick = onDismiss) { Text("关闭", color = DeepSeekMuted, fontSize = 12.sp) } }
             }
         }
     }
@@ -923,18 +725,8 @@ fun TokenDialog(vm: ChatVM, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("记忆阈值", color = Gold, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("达到此 Token 数后自动压缩并迁移新会话", color = DeepSeekMuted, fontSize = 12.sp)
-                Spacer(Modifier.height(10.dp))
-                GlassInputField(v, { v = it }, "40000", true)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { v.toLongOrNull()?.let { vm.setCompressionThreshold(it) }; onDismiss() }) {
-                Text("保存", color = Gold)
-            }
-        },
+        text = { Column { Text("达到此 Token 数后自动压缩并迁移新会话", color = DeepSeekMuted, fontSize = 12.sp); Spacer(Modifier.height(10.dp)); GlassInputField(v, { v = it }, "40000", true) } },
+        confirmButton = { TextButton(onClick = { v.toLongOrNull()?.let { vm.setCompressionThreshold(it) }; onDismiss() }) { Text("保存", color = Gold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
     )
@@ -963,16 +755,7 @@ fun DeleteDialog(vm: ChatVM, sessionId: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("删除会话", color = Gold) },
-        text = {
-            Column {
-                Text("同时删除本地代码文件夹？", color = DeepSeekText, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.clickable { del = !del }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = del, onCheckedChange = { del = it }, colors = CheckboxDefaults.colors(checkedColor = Gold))
-                    Text("删除本地文件", color = if (del) DeepSeekError else DeepSeekMuted, fontSize = 13.sp)
-                }
-            }
-        },
+        text = { Column { Text("同时删除本地代码文件夹？", color = DeepSeekText, fontSize = 13.sp); Spacer(Modifier.height(8.dp)); Row(Modifier.clickable { del = !del }, verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = del, onCheckedChange = { del = it }, colors = CheckboxDefaults.colors(checkedColor = Gold)); Text("删除本地文件", color = if (del) DeepSeekError else DeepSeekMuted, fontSize = 13.sp) } } },
         confirmButton = { TextButton(onClick = { vm.deleteSessionWithFiles(sessionId, del); onDismiss() }) { Text("确认", color = DeepSeekError) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
@@ -986,127 +769,51 @@ fun RepoDialog(vm: ChatVM, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("新建项目", color = Gold, fontWeight = FontWeight.Bold) },
         text = { GlassInputField(name, { name = it }, "仓库名（英文小写）") },
-        confirmButton = {
-            TextButton(onClick = { if (name.isNotBlank()) { vm.createNewSession(name.trim()); onDismiss() } }) {
-                Text("创建", color = Gold)
-            }
-        },
+        confirmButton = { TextButton(onClick = { if (name.isNotBlank()) { vm.createNewSession(name.trim()); onDismiss() } }) { Text("创建", color = Gold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
     )
 }
 
-
-// ============================================================
-//  SettingsDialog — 外观与壁纸（系统相册接入）
-// ============================================================
 @Composable
 fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val form = DeviceMode.of(ctx)
-
     var editForm by remember { mutableStateOf(form) }
     var tick by remember { mutableStateOf(0) }
 
-    val pickPhoneStatic = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Phone, WallpaperStore.Kind.Static)
-            if (path != null) {
-                UiState.phoneStaticPath = path
-                UiState.phoneKind = 1
-                UiState.save(ctx); tick++
-            }
-        }
+    val pickPhoneStatic = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) { val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Phone, WallpaperStore.Kind.Static); if (path != null) { UiState.phoneStaticPath = path; UiState.phoneKind = 1; UiState.save(ctx); tick++ } }
     }
-    val pickPhoneDynamic = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Phone, WallpaperStore.Kind.Dynamic)
-            if (path != null) {
-                UiState.phoneDynamicPath = path
-                UiState.phoneKind = 2
-                UiState.save(ctx); tick++
-            }
-        }
+    val pickPhoneDynamic = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) { val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Phone, WallpaperStore.Kind.Dynamic); if (path != null) { UiState.phoneDynamicPath = path; UiState.phoneKind = 2; UiState.save(ctx); tick++ } }
     }
-    val pickTabletStatic = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Tablet, WallpaperStore.Kind.Static)
-            if (path != null) {
-                UiState.tabletStaticPath = path
-                UiState.tabletKind = 1
-                UiState.save(ctx); tick++
-            }
-        }
+    val pickTabletStatic = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) { val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Tablet, WallpaperStore.Kind.Static); if (path != null) { UiState.tabletStaticPath = path; UiState.tabletKind = 1; UiState.save(ctx); tick++ } }
     }
-    val pickTabletDynamic = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Tablet, WallpaperStore.Kind.Dynamic)
-            if (path != null) {
-                UiState.tabletDynamicPath = path
-                UiState.tabletKind = 2
-                UiState.save(ctx); tick++
-            }
-        }
+    val pickTabletDynamic = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) { val path = WallpaperStore.import(ctx, uri, WallpaperStore.Form.Tablet, WallpaperStore.Kind.Dynamic); if (path != null) { UiState.tabletDynamicPath = path; UiState.tabletKind = 2; UiState.save(ctx); tick++ } }
     }
 
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(Radius.xl),
-            color = DeepSeekSurface.copy(alpha = 0.97f),
-            border = BorderStroke(1.dp, Gold.copy(alpha = 0.45f)),
-            modifier = Modifier.padding(20.dp).fillMaxWidth().heightIn(max = 640.dp)
-        ) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(shape = RoundedCornerShape(Radius.xl), color = DeepSeekSurface.copy(alpha = 0.97f), border = BorderStroke(1.dp, Gold.copy(alpha = 0.45f)), modifier = Modifier.padding(20.dp).fillMaxWidth().heightIn(max = 640.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(GoldGradient), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Palette, null, tint = Color(0xFF1A1710), modifier = Modifier.size(20.dp))
-                    }
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Icon(Icons.Default.Palette, null, tint = Color(0xFF1A1710), modifier = Modifier.size(20.dp)) }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("外观与壁纸", color = Gold, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        Text("手机 / 平板壁纸独立配置", color = DeepSeekMuted, fontSize = 10.sp)
-                    }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Close, null, tint = DeepSeekMuted, modifier = Modifier.size(18.dp))
-                    }
+                    Column(Modifier.weight(1f)) { Text("外观与壁纸", color = Gold, fontSize = 17.sp, fontWeight = FontWeight.Bold); Text("手机 / 平板壁纸独立配置", color = DeepSeekMuted, fontSize = 10.sp) }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Close, null, tint = DeepSeekMuted, modifier = Modifier.size(18.dp)) }
                 }
-
                 Spacer(Modifier.height(14.dp))
-
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.pill))
-                        .background(DeepSeekSurfaceHigh).padding(3.dp)
-                ) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.pill)).background(DeepSeekSurfaceHigh).padding(3.dp)) {
                     listOf("手机" to FormFactor.Phone, "平板" to FormFactor.Tablet).forEach { (label, f) ->
                         val on = editForm == f
-                        Box(
-                            Modifier.weight(1f).clip(RoundedCornerShape(Radius.pill))
-                                .background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
-                                .clickable { 
-                                    editForm = f 
-                                    UiState.save(ctx)
-                                }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.pill)).background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))).clickable { editForm = f; UiState.save(ctx) }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                             Text(label, color = if (on) Color(0xFF1A1710) else DeepSeekMuted, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                         }
                     }
                 }
-
                 Spacer(Modifier.height(14.dp))
-
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     item {
                         var trollEnabled by remember { mutableStateOf(TrollState.enabled) }
@@ -1117,34 +824,18 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                         Column(Modifier.fillMaxWidth().background(DeepSeekSurfaceHigh, RoundedCornerShape(Radius.sm)).padding(12.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text("巨魔流星雨", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Checkbox(checked = trollEnabled, onCheckedChange = { 
-                                    trollEnabled = it
-                                    TrollState.enabled = it 
-                                    if (!it) { TrollState.count = 0 }
-                                }, colors = CheckboxDefaults.colors(checkedColor = Gold))
+                                Checkbox(checked = trollEnabled, onCheckedChange = { trollEnabled = it; TrollState.enabled = it; if (!it) { TrollState.count = 0 } }, colors = CheckboxDefaults.colors(checkedColor = Gold))
                             }
                             if (trollEnabled) {
                                 Text("数量: $trollCount", color = DeepSeekMuted, fontSize = 11.sp)
-                                Slider(value = trollCount.toFloat(), onValueChange = { 
-                                    trollCount = it.toInt()
-                                    TrollState.count = trollCount
-                                }, valueRange = 5f..50f)
-                                
+                                Slider(value = trollCount.toFloat(), onValueChange = { trollCount = it.toInt(); TrollState.count = trollCount }, valueRange = 5f..50f)
                                 Text("速度: ${"%.1f".format(trollSpeed)}x", color = DeepSeekMuted, fontSize = 11.sp)
-                                Slider(value = trollSpeed, onValueChange = { 
-                                    trollSpeed = it
-                                    TrollState.speed = it
-                                }, valueRange = 0.5f..3.0f)
-                                
+                                Slider(value = trollSpeed, onValueChange = { trollSpeed = it; TrollState.speed = it }, valueRange = 0.5f..3.0f)
                                 Text("大小: $trollSize", color = DeepSeekMuted, fontSize = 11.sp)
-                                Slider(value = trollSize.toFloat(), onValueChange = { 
-                                    trollSize = it.toInt()
-                                    TrollState.size = trollSize
-                                }, valueRange = 20f..80f)
+                                Slider(value = trollSize.toFloat(), onValueChange = { trollSize = it.toInt(); TrollState.size = trollSize }, valueRange = 20f..80f)
                             }
                         }
                     }
-
                     item {
                         val curKind = if (editForm == FormFactor.Phone) UiState.phoneKind else UiState.tabletKind
                         Text("壁纸类型", color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
@@ -1152,79 +843,36 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.sm)).background(DeepSeekSurfaceHigh).padding(3.dp)) {
                             listOf(0 to "纯色", 1 to "静态图", 2 to "动态").forEach { (k, label) ->
                                 val on = curKind == k
-                                Box(
-                                    Modifier.weight(1f).clip(RoundedCornerShape(Radius.xs))
-                                        .background(if (on) Gold.copy(alpha = 0.22f) else Color.Transparent)
-                                        .border(1.dp, if (on) Gold.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(Radius.xs))
-                                        .clickable {
-                                            if (editForm == FormFactor.Phone) UiState.phoneKind = k else UiState.tabletKind = k
-                                            UiState.save(ctx); tick++
-                                        }
-                                        .padding(vertical = 7.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.xs)).background(if (on) Gold.copy(alpha = 0.22f) else Color.Transparent).border(1.dp, if (on) Gold.copy(alpha = 0.6f) else Color.Transparent, RoundedCornerShape(Radius.xs)).clickable { if (editForm == FormFactor.Phone) UiState.phoneKind = k else UiState.tabletKind = k; UiState.save(ctx); tick++ }.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
                                     Text(label, color = if (on) Gold else DeepSeekMuted, fontSize = 12.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
                                 }
                             }
                         }
                     }
-
                     item {
-                        WallpaperSlot(
-                            label = "静态图",
-                            path = if (editForm == FormFactor.Phone) UiState.phoneStaticPath else UiState.tabletStaticPath,
-                            isVideo = false,
+                        WallpaperSlot("静态图", if (editForm == FormFactor.Phone) UiState.phoneStaticPath else UiState.tabletStaticPath, false,
                             onPick = { if (editForm == FormFactor.Phone) pickPhoneStatic.launch("image/*") else pickTabletStatic.launch("image/*") },
-                            onClear = {
-                                if (editForm == FormFactor.Phone) { UiState.phoneStaticPath = null; WallpaperStore.remove(WallpaperStore.Form.Phone, WallpaperStore.Kind.Static) }
-                                else { UiState.tabletStaticPath = null; WallpaperStore.remove(WallpaperStore.Form.Tablet, WallpaperStore.Kind.Static) }
-                                UiState.save(ctx); tick++
-                            },
-                            tick = tick
-                        )
+                            onClear = { if (editForm == FormFactor.Phone) { UiState.phoneStaticPath = null; WallpaperStore.remove(WallpaperStore.Form.Phone, WallpaperStore.Kind.Static) } else { UiState.tabletStaticPath = null; WallpaperStore.remove(WallpaperStore.Form.Tablet, WallpaperStore.Kind.Static) }; UiState.save(ctx); tick++ },
+                            tick = tick)
                     }
-
                     item {
-                        WallpaperSlot(
-                            label = "动态视频",
-                            path = if (editForm == FormFactor.Phone) UiState.phoneDynamicPath else UiState.tabletDynamicPath,
-                            isVideo = true,
+                        WallpaperSlot("动态视频", if (editForm == FormFactor.Phone) UiState.phoneDynamicPath else UiState.tabletDynamicPath, true,
                             onPick = { if (editForm == FormFactor.Phone) pickPhoneDynamic.launch("video/*") else pickTabletDynamic.launch("video/*") },
-                            onClear = {
-                                if (editForm == FormFactor.Phone) { UiState.phoneDynamicPath = null; WallpaperStore.remove(WallpaperStore.Form.Phone, WallpaperStore.Kind.Dynamic) }
-                                else { UiState.tabletDynamicPath = null; WallpaperStore.remove(WallpaperStore.Form.Tablet, WallpaperStore.Kind.Dynamic) }
-                                UiState.save(ctx); tick++
-                            },
-                            tick = tick
-                        )
-                    }
-
-                    item {
-                        Text("屏幕宽度 ≥ 600dp 自动切换平板布局", color = DeepSeekMuted, fontSize = 10.sp)
+                            onClear = { if (editForm == FormFactor.Phone) { UiState.phoneDynamicPath = null; WallpaperStore.remove(WallpaperStore.Form.Phone, WallpaperStore.Kind.Dynamic) } else { UiState.tabletDynamicPath = null; WallpaperStore.remove(WallpaperStore.Form.Tablet, WallpaperStore.Kind.Dynamic) }; UiState.save(ctx); tick++ },
+                            tick = tick)
                     }
                 }
-
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("完成", color = Gold, fontWeight = FontWeight.Bold) }
-                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { TextButton(onClick = onDismiss) { Text("完成", color = Gold, fontWeight = FontWeight.Bold) } }
             }
         }
     }
 }
 
 @Composable
-fun WallpaperSlot(
-    label: String,
-    path: String?,
-    isVideo: Boolean,
-    onPick: () -> Unit,
-    onClear: () -> Unit,
-    tick: Int
-) {
+fun WallpaperSlot(label: String, path: String?, isVideo: Boolean, onPick: () -> Unit, onClear: () -> Unit, tick: Int) {
     val file = remember(path, tick) { if (path.isNullOrBlank()) null else java.io.File(path) }
     val exists = file != null && file.exists() && file.length() > 0
-
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
@@ -1232,55 +880,25 @@ fun WallpaperSlot(
             if (exists) {
                 Text("${file!!.length() / 1024} KB", color = DeepSeekDim, fontSize = 10.sp)
                 Spacer(Modifier.width(6.dp))
-                TextButton(onClick = onClear, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.height(22.dp)) {
-                    Text("清除", color = DeepSeekError, fontSize = 11.sp)
-                }
+                TextButton(onClick = onClear, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp), modifier = Modifier.height(22.dp)) { Text("清除", color = DeepSeekError, fontSize = 11.sp) }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Row(
-            Modifier.fillMaxWidth().height(74.dp)
-                .clip(RoundedCornerShape(Radius.sm))
-                .background(DeepSeekSurfaceHigh)
-                .border(1.dp, if (exists) Gold.copy(alpha = 0.4f) else DeepSeekBorder, RoundedCornerShape(Radius.sm))
-                .clickable { onPick() },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(Modifier.fillMaxWidth().height(74.dp).clip(RoundedCornerShape(Radius.sm)).background(DeepSeekSurfaceHigh).border(1.dp, if (exists) Gold.copy(alpha = 0.4f) else DeepSeekBorder, RoundedCornerShape(Radius.sm)).clickable { onPick() }, verticalAlignment = Alignment.CenterVertically) {
             if (exists && !isVideo) {
-                val bmp = remember(path, tick) {
-                    try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Throwable) { null }
-                }
+                val bmp = remember(path, tick) { try { android.graphics.BitmapFactory.decodeFile(path) } catch (_: Throwable) { null } }
                 if (bmp != null) {
-                    androidx.compose.foundation.Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(74.dp).padding(6.dp).clip(RoundedCornerShape(Radius.xs))
-                    )
+                    androidx.compose.foundation.Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(74.dp).padding(6.dp).clip(RoundedCornerShape(Radius.xs)))
                 } else {
-                    Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
-                        Icon(if (isVideo) Icons.Default.PlayCircle else Icons.Default.Image, null, tint = Gold, modifier = Modifier.size(28.dp))
-                    }
+                    Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) { Icon(if (isVideo) Icons.Default.PlayCircle else Icons.Default.Image, null, tint = Gold, modifier = Modifier.size(28.dp)) }
                 }
             } else {
-                Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (!exists) Icons.Default.AddCircle else Icons.Default.PlayCircle,
-                        null, tint = if (exists) Gold else DeepSeekMuted,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) { Icon(if (!exists) Icons.Default.AddCircle else Icons.Default.PlayCircle, null, tint = if (exists) Gold else DeepSeekMuted, modifier = Modifier.size(28.dp)) }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    if (exists) (if (isVideo) "已设置动态视频" else "已设置静态图") else "未设置",
-                    color = if (exists) DeepSeekText else DeepSeekMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium
-                )
-                Text(
-                    if (exists) "点击更换" else "点击从相册选择",
-                    color = DeepSeekDim, fontSize = 10.sp
-                )
+                Text(if (exists) (if (isVideo) "已设置动态视频" else "已设置静态图") else "未设置", color = if (exists) DeepSeekText else DeepSeekMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text(if (exists) "点击更换" else "点击从相册选择", color = DeepSeekDim, fontSize = 10.sp)
             }
             Icon(Icons.Default.ChevronRight, null, tint = DeepSeekMuted, modifier = Modifier.size(16.dp).padding(end = 12.dp))
         }
