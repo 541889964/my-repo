@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import kotlin.random.Random
 
@@ -110,7 +111,11 @@ fun DrawScope.drawPerfectTroll(size: Float, alpha: Float) {
         ),
         start = Offset(0f, 0f), end = Offset(size, size)
     )
-    scale(factor, factor, pivot = Offset(0f, 0f)) {
+
+    // 使用 withTransform 替代直接调用 scale 扩展函数
+    withTransform({
+        scale(factor, factor, pivot = Offset(0f, 0f))
+    }) {
         drawPath(trollPath, goldBrush)
     }
 }
