@@ -109,10 +109,8 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     val currentId by vm.currentId.collectAsState()
     val current = sessions.find { it.id == currentId }
 
-    // 平板侧栏展开状态
-    var isTabletSidebarOpen by remember { mutableStateOf(true) }
-    // 手机侧栏展开状态
-    var isPhoneDrawerOpen by remember { mutableStateOf(false) }
+    var isSidebarOpen by remember { mutableStateOf(true) }
+    var showPhoneDrawer by remember { mutableStateOf(false) }
 
     var showRepo by remember { mutableStateOf(false) }
     var showTree by remember { mutableStateOf(false) }
@@ -130,46 +128,44 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         if (form == FormFactor.Tablet) {
             TabletScreen(
                 vm = vm, current = current,
-                isSidebarOpen = isTabletSidebarOpen, 
-                onToggleSidebar = { isTabletSidebarOpen = !isTabletSidebarOpen },
-                onNew = { showRepo = true }, onSettings = { showSettings = true },
-                onLan = { showLan = true }, onTree = { showTree = true },
-                onCool = { showCool = true }, onToken = { showToken = true },
+                isSidebarOpen = isSidebarOpen, 
+                onToggleSidebar = { isSidebarOpen = !isSidebarOpen },
+                onNew = { showRepo = true }, 
+                onSettings = { showSettings = true },
+                onLan = { showLan = true }, 
+                onTree = { showTree = true },
+                onCool = { showCool = true }, 
+                onToken = { showToken = true },
                 onPalette = { showPalette = true },
                 onDelete = { showDelete = it }
             )
         } else {
-            // 手机主界面
             PhoneScreen(
                 vm = vm, current = current,
-                onMenu = { isPhoneDrawerOpen = true },
-                onLan = { showLan = true }, onTree = { showTree = true },
-                onCool = { showCool = true }, onToken = { showToken = true },
-                onPalette = { showPalette = true }, onSettings = { showSettings = true }
+                onMenu = { showPhoneDrawer = true },
+                onLan = { showLan = true }, 
+                onTree = { showTree = true },
+                onCool = { showCool = true }, 
+                onToken = { showToken = true },
+                onPalette = { showPalette = true }, 
+                onSettings = { showSettings = true }
             )
             
-            // 手机侧滑：绝对保证能滑进滑出，不留残影
-            AnimatedVisibility(
-                visible = isPhoneDrawerOpen,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).clickable { isPhoneDrawerOpen = false }) {
-                    // 阻止点击穿透
+            AnimatedVisibility(visible = showPhoneDrawer, enter = fadeIn(), exit = fadeOut()) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).clickable { showPhoneDrawer = false }) {
                     Box(Modifier.fillMaxHeight().width(300.dp).clickable(enabled = false) {}) {
                         AnimatedVisibility(
-                            visible = isPhoneDrawerOpen,
+                            visible = showPhoneDrawer,
                             enter = slideInHorizontally(initialOffsetX = { -it }),
                             exit = slideOutHorizontally(targetOffsetX = { -it })
                         ) {
                             GlassSessionDrawer(
                                 vm = vm, currentId = currentId,
-                                onClose = { isPhoneDrawerOpen = false },
-                                onNew = { isPhoneDrawerOpen = false; showRepo = true },
-                                onSettings = { isPhoneDrawerOpen = false; showSettings = true }
-                            ,
-                onDelete = { showDelete = it }
-            )
+                                onClose = { showPhoneDrawer = false },
+                                onNew = { showPhoneDrawer = false; showRepo = true },
+                                onSettings = { showPhoneDrawer = false; showSettings = true },
+                                onDelete = { showDelete = it }
+                            )
                         }
                     }
                 }
@@ -196,15 +192,9 @@ fun RootScreen(vm: ChatVM = viewModel()) {
 
 @Composable
 fun PhoneScreen(
-    vm: ChatVM,
-    current: Session?,
-    onMenu: () -> Unit,
-    onLan: () -> Unit,
-    onTree: () -> Unit,
-    onCool: () -> Unit,
-    onToken: () -> Unit,
-    onPalette: () -> Unit,
-    onSettings: () -> Unit
+    vm: ChatVM, current: Session?,
+    onMenu: () -> Unit, onLan: () -> Unit, onTree: () -> Unit,
+    onCool: () -> Unit, onToken: () -> Unit, onPalette: () -> Unit, onSettings: () -> Unit
 ) {
     Column(Modifier.fillMaxSize()) {
         PhoneHeader(current, onMenu, onLan, onTree, onCool, onPalette)
@@ -221,75 +211,31 @@ fun PhoneScreen(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun PhoneHeader(
-    current: Session?,
-    onMenu: () -> Unit,
-    onLan: () -> Unit,
-    onTree: () -> Unit,
-    onCool: () -> Unit,
-    onPalette: () -> Unit
-) {
+fun PhoneHeader(current: Session?, onMenu: () -> Unit, onLan: () -> Unit, onTree: () -> Unit, onCool: () -> Unit, onPalette: () -> Unit) {
     val running = current?.runs?.lastOrNull()?.running == true
     val pendingWait = current?.pendingPrompt != null && !running
     val lastFailed = current?.runs?.lastOrNull()?.finalReply?.startsWith("[网络错误]") == true
 
-    Box(
-        Modifier.fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-    ) {
-        GlassBox(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(Radius.xl),
-            tint = Color.White, tintAlpha = 0.06f, strokeAlpha = 0.35f, flowEnabled = false
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onMenu, modifier = Modifier.size(38.dp)) {
-                    Icon(Icons.Default.Menu, null, tint = Gold, modifier = Modifier.size(20.dp))
-                }
+    Box(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 10.dp, vertical = 8.dp)) {
+        GlassBox(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(Radius.xl), tint = Color.White, tintAlpha = 0.06f, strokeAlpha = 0.35f, flowEnabled = false) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onMenu, modifier = Modifier.size(38.dp)) { Icon(Icons.Default.Menu, null, tint = Gold, modifier = Modifier.size(20.dp)) }
                 Spacer(Modifier.width(4.dp))
-
-                Box(
-                    Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(GoldGradient)
-                        .combinedClickable(onClick = {}, onLongClick = { onPalette() }),
-                    contentAlignment = Alignment.Center
-                ) { Text("S", color = Color(0xFF1A1710), fontSize = 18.sp, fontWeight = FontWeight.Black) }
-
+                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(GoldGradient).combinedClickable(onClick = {}, onLongClick = { onPalette() }), contentAlignment = Alignment.Center) { Text("S", color = Color(0xFF1A1710), fontSize = 18.sp, fontWeight = FontWeight.Black) }
                 Spacer(Modifier.width(10.dp))
-
                 Column(Modifier.weight(1f)) {
                     Text("SUPERROUTER", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            current?.title ?: "就绪", color = DeepSeekText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
+                        Text(current?.title ?: "就绪", color = DeepSeekText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(6.dp))
-                        AgentOrb(
-                            when {
-                                running -> OrbState.Running
-                                lastFailed -> OrbState.Failed
-                                pendingWait -> OrbState.Waiting
-                                else -> OrbState.Idle
-                            }, size = 8.dp
-                        )
+                        AgentOrb(when { running -> OrbState.Running; lastFailed -> OrbState.Failed; pendingWait -> OrbState.Waiting; else -> OrbState.Idle }, size = 8.dp)
                     }
                 }
-
-                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onCool() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Timer, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp))
-                }
+                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onCool() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Timer, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp)) }
                 Spacer(Modifier.width(4.dp))
-                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onLan() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Wifi, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp))
-                }
+                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onLan() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Wifi, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp)) }
                 Spacer(Modifier.width(4.dp))
-                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onTree() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.AccountTree, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp))
-                }
+                Box(Modifier.size(34.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.55f)).clickable { onTree() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.AccountTree, null, tint = DeepSeekAccent, modifier = Modifier.size(16.dp)) }
             }
         }
     }
@@ -306,11 +252,7 @@ fun AgentOrb(state: OrbState, size: Dp = 8.dp) {
         OrbState.Waiting -> StatusWait to 1400
         OrbState.Failed -> StatusFail to 1000
     }
-    val a by inf.animateFloat(
-        initialValue = 0.5f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(period), RepeatMode.Reverse),
-        label = "a"
-    )
+    val a by inf.animateFloat(initialValue = 0.5f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(period), RepeatMode.Reverse), label = "a")
     Box(Modifier.size(size * 2).clip(CircleShape).background(color.copy(alpha = 0.22f * a)), contentAlignment = Alignment.Center) {
         Box(Modifier.size(size).clip(CircleShape).background(color))
     }
@@ -320,17 +262,11 @@ fun AgentOrb(state: OrbState, size: Dp = 8.dp) {
 fun ChatList(vm: ChatVM, current: Session?, modifier: Modifier = Modifier) {
     val activeRun by vm.activeRun.collectAsState()
     val listState = rememberLazyListState()
-
     LaunchedEffect(current?.runs?.size, activeRun?.steps?.size) {
         val count = (current?.runs?.size ?: 0) + (if (activeRun != null) 1 else 0)
         if (count > 0) listState.animateScrollToItem(count - 1)
     }
-
-    LazyColumn(
-        state = listState, modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
+    LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (current == null || (current.runs.isEmpty() && activeRun == null)) {
             item { EmptyHero() }
         } else {
@@ -344,9 +280,7 @@ fun ChatList(vm: ChatVM, current: Session?, modifier: Modifier = Modifier) {
 fun EmptyHero() {
     Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            GlassBox(shape = RoundedCornerShape(24.dp), tintAlpha = 0.10f, strokeAlpha = 0.5f, modifier = Modifier.size(88.dp)) {
-                Icon(Icons.Default.Bolt, null, tint = GoldGlow, modifier = Modifier.size(46.dp))
-            }
+            GlassBox(shape = RoundedCornerShape(24.dp), tintAlpha = 0.10f, strokeAlpha = 0.5f, modifier = Modifier.size(88.dp)) { Icon(Icons.Default.Bolt, null, tint = GoldGlow, modifier = Modifier.size(46.dp)) }
             Spacer(Modifier.height(20.dp))
             Text("准备就绪", style = TextStyle(brush = GoldGradient, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
             Spacer(Modifier.height(6.dp))
@@ -366,9 +300,7 @@ fun TimelineRunCard(run: AgentRun) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                     if (!run.chineseName.isNullOrBlank()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(14.dp).clip(RoundedCornerShape(4.dp)).background(GoldGradient), contentAlignment = Alignment.Center) {
-                                Text("AI", color = Color(0xFF1A1710), fontSize = 7.sp, fontWeight = FontWeight.Black)
-                            }
+                            Box(Modifier.size(14.dp).clip(RoundedCornerShape(4.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Text("AI", color = Color(0xFF1A1710), fontSize = 7.sp, fontWeight = FontWeight.Black) }
                             Spacer(Modifier.width(6.dp))
                             Text(run.chineseName!!, color = Gold, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -383,13 +315,9 @@ fun TimelineRunCard(run: AgentRun) {
 
         Row(Modifier.fillMaxWidth()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(30.dp)) {
-                Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(GoldGradient), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.SmartToy, null, tint = Color(0xFF1A1710), modifier = Modifier.size(16.dp))
-                }
+                Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Icon(Icons.Default.SmartToy, null, tint = Color(0xFF1A1710), modifier = Modifier.size(16.dp)) }
                 Spacer(Modifier.width(1.dp))
-                if (expanded && run.steps.isNotEmpty()) {
-                    Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(GoldGradient))
-                }
+                if (expanded && run.steps.isNotEmpty()) Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(GoldGradient.copy(alpha = 0.4f)))
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -416,6 +344,18 @@ fun TimelineRunCard(run: AgentRun) {
                     Text("下载 ${(run.downloadProgress * 100).toInt()}%", color = Gold, fontSize = 10.sp)
                     Spacer(Modifier.height(2.dp))
                     LinearProgressIndicator(progress = run.downloadProgress, modifier = Modifier.fillMaxWidth().height(2.dp).clip(RoundedCornerShape(1.dp)), color = Gold, trackColor = DeepSeekSurfaceHigh)
+                }
+
+                if (run.cooldownRemaining > 0.0) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("防封冷却", color = DeepSeekWarning, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.weight(1f))
+                        Text("%.4fs".format(run.cooldownRemaining / 1000.0), color = DeepSeekWarning, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    val progress = if (run.cooldownTotal > 0) (run.cooldownRemaining / run.cooldownTotal).toFloat() else 0f
+                    LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(1.dp)), color = DeepSeekWarning, trackColor = DeepSeekSurfaceHigh)
                 }
 
                 if (!run.running && run.finalReply != null) {
@@ -502,65 +442,34 @@ fun GlassInputBar(vm: ChatVM) {
     var input by remember { mutableStateOf("") }
 
     Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
-        // 改成普通 Box + border，确保焦点不被拦截
-        Box(
-            Modifier.weight(1f).clip(RoundedCornerShape(Radius.xl)).background(DeepSeekSurfaceHigh)
-                .border(1.dp, if (input.isNotBlank()) Gold.copy(alpha = 0.6f) else DeepSeekBorder, RoundedCornerShape(Radius.xl))
-        ) {
-            BasicTextField(
-                value = input,
-                onValueChange = { input = it },
-                textStyle = TextStyle(color = DeepSeekText, fontSize = 15.sp),
-                cursorBrush = SolidColor(Gold),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
-                maxLines = 5,
-                keyboardOptions = KeyboardOptions.Default,
-                decorationBox = { inner ->
-                    if (input.isEmpty()) Text("要让 AI 做什么？", color = DeepSeekMuted, fontSize = 15.sp)
-                    inner()
-                }
-            )
+        Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.xl)).background(DeepSeekSurfaceHigh).border(1.dp, if (input.isNotBlank()) Gold.copy(alpha = 0.6f) else DeepSeekBorder, RoundedCornerShape(Radius.xl))) {
+            BasicTextField(value = input, onValueChange = { input = it }, textStyle = TextStyle(color = DeepSeekText, fontSize = 15.sp), cursorBrush = SolidColor(Gold), modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp), maxLines = 5, keyboardOptions = KeyboardOptions.Default, decorationBox = { inner -> if (input.isEmpty()) Text("要让 AI 做什么？", color = DeepSeekMuted, fontSize = 15.sp); inner() })
         }
         Spacer(Modifier.width(8.dp))
         if (running) {
-            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekError).clickable { vm.stopCurrent() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekError).clickable { vm.stopCurrent() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         } else if (current?.pendingPrompt != null) {
-            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSurfaceHigh).clickable { vm.skipCurrent() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.SkipNext, null, tint = Gold, modifier = Modifier.size(22.dp))
-            }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSurfaceHigh).clickable { vm.skipCurrent() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.SkipNext, null, tint = Gold, modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(6.dp))
-            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSuccess).clickable { vm.resumeLast() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSuccess).clickable { vm.resumeLast() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         } else {
             val ok = input.isNotBlank()
-            Box(Modifier.size(50.dp).clip(CircleShape).background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh))).clickable { if (ok) { vm.send(input); input = "" } }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp))
-            }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh))).clickable { if (ok) { vm.send(input); input = "" } }, contentAlignment = Alignment.Center) { Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp)) }
         }
     }
 }
 
 @Composable
-fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: (,
-                onDelete = { showDelete = it }
-            ) -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onDelete: (String) -> Unit) {
+fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onDelete: (String) -> Unit) {
     val sessions by vm.sessions.collectAsState()
     Box(Modifier.fillMaxHeight().width(300.dp).background(DeepSeekBg.copy(alpha = 0.95f))) {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.04f)))))
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(GoldGradient), contentAlignment = Alignment.Center) {
-                        Text("S", color = Color(0xFF1A1710), fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    }
+                    Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Text("S", color = Color(0xFF1A1710), fontSize = 24.sp, fontWeight = FontWeight.Black) }
                     Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("SUPERROUTER", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-                        Text("全自动 AI 代理", color = DeepSeekMuted, fontSize = 10.sp)
-                    }
+                    Column { Text("SUPERROUTER", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp); Text("全自动 AI 代理", color = DeepSeekMuted, fontSize = 10.sp) }
                 }
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
@@ -611,31 +520,15 @@ fun CoolDialog(vm: ChatVM, onDismiss: () -> Unit) {
     var maxStr by remember { mutableStateOf("%.2f".format(maxMs / 1000.0)) }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("冷却区间", color = Gold, fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("每步执行前在区间内随机等待，精确到 0.01 秒", color = DeepSeekMuted, fontSize = 12.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        onDismissRequest = onDismiss, title = { Text("冷却区间", color = Gold, fontWeight = FontWeight.Bold) },
+        text = { Column { Text("每步执行前在区间内随机等待，精确到 0.01 秒", color = DeepSeekMuted, fontSize = 12.sp); Spacer(Modifier.height(12.dp)); Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f)) { GlassInputField(minStr, { minStr = it }, "0.00", true) }
                     Text(" ~ ", color = DeepSeekMuted, fontSize = 16.sp)
                     Box(Modifier.weight(1f)) { GlassInputField(maxStr, { maxStr = it }, "3.00", true) }
                     Spacer(Modifier.width(8.dp))
                     Text("秒", color = DeepSeekMuted, fontSize = 13.sp)
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("0~0", "0.5~3", "1~5", "3~10").forEach { p ->
-                        val parts = p.split("~")
-                        Box(Modifier.clip(RoundedCornerShape(Radius.sm)).background(DeepSeekSurfaceHigh).border(1.dp, Gold.copy(alpha = 0.3f), RoundedCornerShape(Radius.sm)).clickable { minStr = parts[0]; maxStr = parts[1] }.padding(horizontal = 10.dp, vertical = 6.dp)) { Text(p, color = Gold, fontSize = 11.sp) }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { vm.setCooldownRange((minStr.toDoubleOrNull() ?: 0.0) * 1000, (maxStr.toDoubleOrNull() ?: 0.0) * 1000); onDismiss() }) { Text("保存", color = Gold, fontWeight = FontWeight.Bold) }
-        },
+                } } },
+        confirmButton = { TextButton(onClick = { vm.setCooldownRange((minStr.toDoubleOrNull() ?: 0.0) * 1000, (maxStr.toDoubleOrNull() ?: 0.0) * 1000); onDismiss() }) { Text("保存", color = Gold, fontWeight = FontWeight.Bold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
     )
@@ -644,13 +537,7 @@ fun CoolDialog(vm: ChatVM, onDismiss: () -> Unit) {
 @Composable
 fun GlassInputField(value: String, onChange: (String) -> Unit, placeholder: String, numeric: Boolean = false) {
     Surface(shape = RoundedCornerShape(Radius.sm), color = DeepSeekSurfaceHigh, border = BorderStroke(1.dp, DeepSeekBorder)) {
-        BasicTextField(
-            value = value, onValueChange = onChange, textStyle = TextStyle(color = DeepSeekText, fontSize = 14.sp),
-            cursorBrush = SolidColor(Gold),
-            keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-            decorationBox = { inner -> if (value.isEmpty()) Text(placeholder, color = DeepSeekMuted, fontSize = 14.sp); inner() }
-        )
+        BasicTextField(value = value, onValueChange = onChange, textStyle = TextStyle(color = DeepSeekText, fontSize = 14.sp), cursorBrush = SolidColor(Gold), keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), decorationBox = { inner -> if (value.isEmpty()) Text(placeholder, color = DeepSeekMuted, fontSize = 14.sp); inner() })
     }
 }
 
@@ -734,8 +621,7 @@ fun LanDialog(vm: ChatVM, onDismiss: () -> Unit) {
 fun TokenDialog(vm: ChatVM, onDismiss: () -> Unit) {
     var v by remember { mutableStateOf(vm.compressionThreshold.value.toString()) }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("记忆阈值", color = Gold, fontWeight = FontWeight.Bold) },
+        onDismissRequest = onDismiss, title = { Text("记忆阈值", color = Gold, fontWeight = FontWeight.Bold) },
         text = { Column { Text("达到此 Token 数后自动压缩并迁移新会话", color = DeepSeekMuted, fontSize = 12.sp); Spacer(Modifier.height(10.dp)); GlassInputField(v, { v = it }, "40000", true) } },
         confirmButton = { TextButton(onClick = { v.toLongOrNull()?.let { vm.setCompressionThreshold(it) }; onDismiss() }) { Text("保存", color = Gold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
@@ -746,8 +632,7 @@ fun TokenDialog(vm: ChatVM, onDismiss: () -> Unit) {
 @Composable
 fun TreeDialog(vm: ChatVM, current: Session, onDismiss: () -> Unit) {
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("项目结构 · ${current.repoName}", color = Gold, fontSize = 15.sp, fontWeight = FontWeight.Bold) },
+        onDismissRequest = onDismiss, title = { Text("项目结构 · ${current.repoName}", color = Gold, fontSize = 15.sp, fontWeight = FontWeight.Bold) },
         text = {
             Surface(color = DeepSeekCodeBg, shape = RoundedCornerShape(Radius.sm), border = BorderStroke(1.dp, DeepSeekBorder), modifier = Modifier.fillMaxWidth().height(400.dp)) {
                 val nodes = remember(current.repoName, current.runs.size) { vm.getProjectTree(current.repoName) }
@@ -762,7 +647,7 @@ fun TreeDialog(vm: ChatVM, current: Session, onDismiss: () -> Unit) {
 
 @Composable
 fun DeleteDialog(vm: ChatVM, sessionId: String, onDismiss: () -> Unit) {
-    var delFiles by remember { mutableStateOf(true) } // 默认勾选删除文件
+    var delFiles by remember { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("⚠️ 危险操作", color = DeepSeekError, fontWeight = FontWeight.Bold) },
@@ -792,8 +677,7 @@ fun DeleteDialog(vm: ChatVM, sessionId: String, onDismiss: () -> Unit) {
 fun RepoDialog(vm: ChatVM, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("新建项目", color = Gold, fontWeight = FontWeight.Bold) },
+        onDismissRequest = onDismiss, title = { Text("新建项目", color = Gold, fontWeight = FontWeight.Bold) },
         text = { GlassInputField(name, { name = it }, "仓库名（英文小写）") },
         confirmButton = { TextButton(onClick = { if (name.isNotBlank()) { vm.createNewSession(name.trim()); onDismiss() } }) { Text("创建", color = Gold) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },

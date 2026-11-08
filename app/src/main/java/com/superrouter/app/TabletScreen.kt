@@ -1,8 +1,6 @@
 package com.superrouter.app
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,17 +46,16 @@ fun TabletScreen(
     Row(Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = isSidebarOpen,
-            enter = slideInHorizontally(initialOffsetX = { -it }),
-            exit = slideOutHorizontally(targetOffsetX = { -it })
+            enter = expandHorizontally(expandFrom = Alignment.Start) + slideInHorizontally(initialOffsetX = { -it }),
+            exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + slideOutHorizontally(targetOffsetX = { -it })
         ) {
             TabletSidebar(
                 vm = vm,
                 current = current,
                 onNew = onNew,
                 onSettings = onSettings,
-                modifier = Modifier.width(320.dp,
-                onDelete = { showDelete = it }
-            ).fillMaxHeight()
+                onDelete = onDelete,
+                modifier = Modifier.width(320.dp).fillMaxHeight()
             )
         }
 
@@ -89,9 +86,7 @@ fun TabletScreen(
 fun TabletSidebar(
     vm: ChatVM,
     current: Session?,
-    onNew: (,
-                onDelete = { showDelete = it }
-            ) -> Unit,
+    onNew: () -> Unit,
     onSettings: () -> Unit,
     onDelete: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -222,7 +217,6 @@ fun TabletHeader(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 侧边栏收缩按钮
                 IconButton(onClick = onToggleSidebar, modifier = Modifier.size(34.dp)) {
                     Icon(Icons.Default.Menu, null, tint = Gold, modifier = Modifier.size(20.dp))
                 }
@@ -230,24 +224,15 @@ fun TabletHeader(
 
                 Box(
                     Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(GoldGradient)
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = { onPalette() }
-                        ),
+                        .combinedClickable(onClick = {}, onLongClick = { onPalette() }),
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Default.Bolt, null, tint = Color(0xFF1A1710), modifier = Modifier.size(18.dp)) }
+                
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        current?.repoName?.uppercase() ?: "DEFAULT_PROJECT",
-                        color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp
-                    )
+                    Text(current?.repoName?.uppercase() ?: "DEFAULT_PROJECT", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            current?.title ?: "就绪",
-                            color = DeepSeekText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
+                        Text(current?.title ?: "就绪", color = DeepSeekText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(8.dp))
                         AgentOrb(
                             when {
@@ -259,15 +244,9 @@ fun TabletHeader(
                         )
                     }
                 }
-                IconButton(onClick = onCool, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Timer, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp))
-                }
-                IconButton(onClick = onLan, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.Wifi, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp))
-                }
-                IconButton(onClick = onTree, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.AccountTree, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp))
-                }
+                IconButton(onClick = onCool, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Timer, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp)) }
+                IconButton(onClick = onLan, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Wifi, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp)) }
+                IconButton(onClick = onTree, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.AccountTree, null, tint = DeepSeekAccent, modifier = Modifier.size(18.dp)) }
             }
         }
     }
