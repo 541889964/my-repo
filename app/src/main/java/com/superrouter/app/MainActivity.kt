@@ -128,32 +128,32 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     Box(Modifier.fillMaxSize()) {
         WallpaperLayer(form)
 
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = true,
-            drawerContent = {
-                GlassSessionDrawer(
-                    vm = vm,
-                    currentId = currentId,
-                    onClose = { drawerOpen = false },
-                    onNew = { drawerOpen = false; showRepo = true },
-                    onSettings = { drawerOpen = false; showSettings = true }
-                )
-            }
-        ) {
-            if (form == FormFactor.Tablet) {
-                TabletScreen(
-                    vm = vm,
-                    current = current,
-                    onNew = { showRepo = true },
-                    onSettings = { showSettings = true },
-                    onLan = { showLan = true },
-                    onTree = { showTree = true },
-                    onCool = { showCool = true },
-                    onToken = { showToken = true },
-                    onPalette = { showPalette = true }
-                )
-            } else {
+        if (form == FormFactor.Tablet) {
+            TabletScreen(
+                vm = vm,
+                current = current,
+                onNew = { showRepo = true },
+                onSettings = { showSettings = true },
+                onLan = { showLan = true },
+                onTree = { showTree = true },
+                onCool = { showCool = true },
+                onToken = { showToken = true },
+                onPalette = { showPalette = true }
+            )
+        } else {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = true,
+                drawerContent = {
+                    GlassSessionDrawer(
+                        vm = vm,
+                        currentId = currentId,
+                        onClose = { drawerOpen = false },
+                        onNew = { drawerOpen = false; showRepo = true },
+                        onSettings = { drawerOpen = false; showSettings = true }
+                    )
+                }
+            ) {
                 PhoneScreen(
                     vm = vm,
                     current = current,
@@ -584,14 +584,17 @@ fun OverlaySeg(current: Int, onChange: (Int) -> Unit) {
             .padding(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        listOf(Icons.Default.OpenInNew, Icons.Default.RemoveRedEye, Icons.Default.VisibilityOff).forEachIndexed { i, icon ->
+        listOf("窗", "岛", "关").forEachIndexed { i, label ->
             val on = i == current
             Box(
-                Modifier.size(22.dp).clip(CircleShape)
+                Modifier.clip(RoundedCornerShape(Radius.pill))
                     .background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
-                    .clickable { onChange(i) },
+                    .clickable { onChange(i) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center
-            ) { Icon(icon, null, tint = if (on) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(11.dp)) }
+            ) {
+                Text(label, color = if (on) Color(0xFF1A1710) else DeepSeekMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1078,7 +1081,11 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                         Box(
                             Modifier.weight(1f).clip(RoundedCornerShape(Radius.pill))
                                 .background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
-                                .clickable { editForm = f }
+                                .clickable { 
+                                    editForm = f 
+                                    UiState.forceForm = f // 切换时立即应用布局，让你直观看到换壁纸的效果
+                                    UiState.save(ctx)
+                                }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
