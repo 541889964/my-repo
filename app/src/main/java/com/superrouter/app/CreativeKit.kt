@@ -48,9 +48,9 @@ fun InsightDeck(vm: ChatVM, modifier: Modifier = Modifier) {
     val runs = current?.runs ?: emptyList()
     val totalSteps = runs.sumOf { it.steps.size }
     val totalTokens = current?.accumulatedTokens ?: 0L
-    val successRuns = runs.count { r -> r.steps.all { it.success } && r.steps.isNotEmpty() }
+    val successSteps = runs.sumOf { r -> r.steps.count { it.success } }
+    val successRate = if (totalSteps == 0) 0 else (successSteps * 100 / totalSteps)
     val runCount = runs.size.coerceAtLeast(1)
-    val successRate = if (runs.isEmpty()) 0 else (successRuns * 100 / runCount)
     val avgSteps = if (runs.isEmpty()) 0 else totalSteps / runCount
 
     LazyRow(

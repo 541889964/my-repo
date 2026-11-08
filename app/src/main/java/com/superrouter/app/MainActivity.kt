@@ -110,7 +110,6 @@ fun RootScreen(vm: ChatVM = viewModel()) {
     val ctx = LocalContext.current
     LaunchedEffect(Unit) { UiState.load(ctx) }
     
-    // 监听屏幕旋转，实时重组
     val configuration = LocalConfiguration.current
     val form = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) FormFactor.Tablet else FormFactor.Phone
 
@@ -120,8 +119,6 @@ fun RootScreen(vm: ChatVM = viewModel()) {
 
     var drawerOpen by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    
-    // 平板模式侧栏收缩状态
     var isSidebarOpen by remember { mutableStateOf(true) }
 
     var showRepo by remember { mutableStateOf(false) }
@@ -135,9 +132,9 @@ fun RootScreen(vm: ChatVM = viewModel()) {
 
     Box(Modifier.fillMaxSize()) {
         WallpaperLayer(form)
+        TrollRainOverlay()
 
         if (form == FormFactor.Tablet) {
-            // 平板模式：直接双栏
             TabletScreen(
                 vm = vm,
                 current = current,
@@ -152,7 +149,6 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                 onPalette = { showPalette = true }
             )
         } else {
-            // 手机模式：禁用侧滑(gesturesEnabled = false)，必须点菜单键，防止卡死
             ModalNavigationDrawer(
                 drawerState = drawerState,
                 gesturesEnabled = false, 
@@ -1112,6 +1108,43 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(14.dp))
 
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        var trollEnabled by remember { mutableStateOf(TrollState.enabled) }
+                        var trollSpeed by remember { mutableStateOf(TrollState.speed) }
+                        var trollSize by remember { mutableStateOf(TrollState.size) }
+                        var trollCount by remember { mutableStateOf(TrollState.count) }
+
+                        Column(Modifier.fillMaxWidth().background(DeepSeekSurfaceHigh, RoundedCornerShape(Radius.sm)).padding(12.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("巨魔流星雨", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Checkbox(checked = trollEnabled, onCheckedChange = { 
+                                    trollEnabled = it
+                                    TrollState.enabled = it 
+                                    if (!it) { TrollState.count = 0 }
+                                }, colors = CheckboxDefaults.colors(checkedColor = Gold))
+                            }
+                            if (trollEnabled) {
+                                Text("数量: $trollCount", color = DeepSeekMuted, fontSize = 11.sp)
+                                Slider(value = trollCount.toFloat(), onValueChange = { 
+                                    trollCount = it.toInt()
+                                    TrollState.count = trollCount
+                                }, valueRange = 5f..50f)
+                                
+                                Text("速度: ${"%.1f".format(trollSpeed)}x", color = DeepSeekMuted, fontSize = 11.sp)
+                                Slider(value = trollSpeed, onValueChange = { 
+                                    trollSpeed = it
+                                    TrollState.speed = it
+                                }, valueRange = 0.5f..3.0f)
+                                
+                                Text("大小: $trollSize", color = DeepSeekMuted, fontSize = 11.sp)
+                                Slider(value = trollSize.toFloat(), onValueChange = { 
+                                    trollSize = it.toInt()
+                                    TrollState.size = trollSize
+                                }, valueRange = 20f..80f)
+                            }
+                        }
+                    }
+
                     item {
                         val curKind = if (editForm == FormFactor.Phone) UiState.phoneKind else UiState.tabletKind
                         Text("壁纸类型", color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
