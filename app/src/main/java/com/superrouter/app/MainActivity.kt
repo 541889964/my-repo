@@ -135,7 +135,8 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                 onNew = { showRepo = true }, onSettings = { showSettings = true },
                 onLan = { showLan = true }, onTree = { showTree = true },
                 onCool = { showCool = true }, onToken = { showToken = true },
-                onPalette = { showPalette = true }
+                onPalette = { showPalette = true },
+                onDelete = { showDelete = it }
             )
         } else {
             // 手机主界面
@@ -541,7 +542,7 @@ fun GlassInputBar(vm: ChatVM) {
 }
 
 @Composable
-fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit) {
+fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNew: () -> Unit, onSettings: () -> Unit, onDelete: (String) -> Unit) {
     val sessions by vm.sessions.collectAsState()
     Box(Modifier.fillMaxHeight().width(300.dp).background(DeepSeekBg.copy(alpha = 0.95f))) {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.04f)))))
@@ -576,7 +577,13 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
                             Text(s.title, color = if (s.id == currentId) DeepSeekText else DeepSeekMuted, fontSize = 14.sp, fontWeight = if (s.id == currentId) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${s.repoName} · ${s.accumulatedTokens}t", color = DeepSeekMuted, fontSize = 10.sp)
                         }
-                        if (s.isProtected) Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(12.dp))
+                        if (s.isProtected) {
+                            Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(16.dp))
+                        } else {
+                            IconButton(onClick = { onDelete(s.id) }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Default.Delete, null, tint = DeepSeekError, modifier = Modifier.size(16.dp))
+                            }
+                        }
                     }
                 }
             }
@@ -751,12 +758,27 @@ fun TreeDialog(vm: ChatVM, current: Session, onDismiss: () -> Unit) {
 
 @Composable
 fun DeleteDialog(vm: ChatVM, sessionId: String, onDismiss: () -> Unit) {
-    var del by remember { mutableStateOf(false) }
+    var delFiles by remember { mutableStateOf(true) } // 默认勾选删除文件
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("删除会话", color = Gold) },
-        text = { Column { Text("同时删除本地代码文件夹？", color = DeepSeekText, fontSize = 13.sp); Spacer(Modifier.height(8.dp)); Row(Modifier.clickable { del = !del }, verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = del, onCheckedChange = { del = it }, colors = CheckboxDefaults.colors(checkedColor = Gold)); Text("删除本地文件", color = if (del) DeepSeekError else DeepSeekMuted, fontSize = 13.sp) } } },
-        confirmButton = { TextButton(onClick = { vm.deleteSessionWithFiles(sessionId, del); onDismiss() }) { Text("确认", color = DeepSeekError) } },
+        title = { Text("⚠️ 危险操作", color = DeepSeekError, fontWeight = FontWeight.Bold) },
+        text = { 
+            Column { 
+                Text("即将删除此会话，此操作不可恢复！", color = DeepSeekText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Text("• 将同步删除 DeepSeek 官方对话记录", color = DeepSeekMuted, fontSize = 13.sp)
+                Spacer(Modifier.height(4.dp))
+                Row(Modifier.clickable { delFiles = !delFiles }, verticalAlignment = Alignment.CenterVertically) { 
+                    Checkbox(checked = delFiles, onCheckedChange = { delFiles = it }, colors = CheckboxDefaults.colors(checkedColor = DeepSeekError)) 
+                    Text("同时清除本地代码文件夹", color = if (delFiles) DeepSeekError else DeepSeekMuted, fontSize = 13.sp) 
+                } 
+            } 
+        },
+        confirmButton = { 
+            TextButton(onClick = { vm.deleteSessionWithFiles(sessionId, delFiles); onDismiss() }) { 
+                Text("彻底删除", color = DeepSeekError, fontWeight = FontWeight.Bold) 
+            } 
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消", color = DeepSeekMuted) } },
         containerColor = DeepSeekSurface.copy(alpha = 0.95f)
     )

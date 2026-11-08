@@ -42,7 +42,8 @@ fun TabletScreen(
     onTree: () -> Unit,
     onCool: () -> Unit,
     onToken: () -> Unit,
-    onPalette: () -> Unit
+    onPalette: () -> Unit,
+    onDelete: (String) -> Unit
 ) {
     Row(Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -88,6 +89,7 @@ fun TabletSidebar(
     current: Session?,
     onNew: () -> Unit,
     onSettings: () -> Unit,
+    onDelete: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sessions by vm.sessions.collectAsState()
@@ -159,7 +161,13 @@ fun TabletSidebar(
                                 )
                                 Text("${s.repoName} · ${s.accumulatedTokens}t", color = DeepSeekMuted, fontSize = 10.sp)
                             }
-                            if (s.isProtected) Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(12.dp))
+                            if (s.isProtected) {
+                                Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(16.dp))
+                            } else {
+                                IconButton(onClick = { onDelete(s.id) }, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.Delete, null, tint = DeepSeekError, modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
                 }

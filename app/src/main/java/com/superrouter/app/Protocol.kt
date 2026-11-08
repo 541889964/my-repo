@@ -26,7 +26,9 @@ data class AgentRun(
     val errorLogs: String? = null,
     val downloadProgress: Float = 0f,
     val retryCount: Int = 0,
-    val lastError: String? = null
+    val lastError: String? = null,
+    val cooldownRemaining: Double = 0.0,
+    val cooldownTotal: Double = 0.0
 )
 
 data class ChatMsg(val isUser: Boolean, val content: String)
