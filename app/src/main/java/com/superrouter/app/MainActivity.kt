@@ -317,7 +317,7 @@ fun TimelineRunCard(run: AgentRun) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(30.dp)) {
                 Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(GoldGradient), contentAlignment = Alignment.Center) { Icon(Icons.Default.SmartToy, null, tint = Color(0xFF1A1710), modifier = Modifier.size(16.dp)) }
                 Spacer(Modifier.width(1.dp))
-                if (expanded && run.steps.isNotEmpty()) Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(GoldGradient.copy(alpha = 0.4f)))
+                if (expanded && run.steps.isNotEmpty()) Box(Modifier.width(1.dp).height((run.steps.size * 24).dp.coerceAtLeast(8.dp)).background(Gold.copy(alpha = 0.4f)))
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
