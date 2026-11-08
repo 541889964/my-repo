@@ -31,7 +31,7 @@
     <path android:pathData="M64.5,42 C64.5,42 58,39 53,39 C47,39 43,43 43,47 C43,51 47,53 51,54 L57,56 C60,57 61.5,58.5 61.5,61 C61.5,63.5 58.5,65.5 54,65.5 C49,65.5 44,63 44,63 L44,69 C44,69 49,71.5 54,71.5 C61,71.5 66,67 66,60 C66,55 62,52 58,51 L52,49 C49.5,48 48.5,46.5 48.5,44.5 C48.5,42.5 51,40 54,40 C58,40 64.5,42 64.5,42 Z">
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="43" android:startY="39" android:endX="66" android:endY="71.5">
-                <item android:offset="0" android:color="#FFFFFFF4D0"/>
+                <item android:offset="0" android:color="#FFFFF4D0"/>
                 <item android:offset="0.3" android:color="#FFFFD86B"/>
                 <item android:offset="0.8" android:color="#FFF5C542"/>
                 <item android:offset="1" android:color="#FFB8860B"/>
