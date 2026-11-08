@@ -100,7 +100,7 @@ M 563.8 652.7 L 579.6 601.1 L 616.4 593.8 L 599.3 646.3 L 563.8 652.7 Z
 val trollPath = PathParser().parsePathString(TROLL_SVG_PATH).toPath()
 
 fun DrawScope.drawPerfectTroll(size: Float, alpha: Float) {
-    val scale = size / 1000f
+    val factor = size / 1000f
     val goldBrush = Brush.linearGradient(
         colors = listOf(
             Color(0xFFFFF4D0).copy(alpha = alpha),
@@ -110,7 +110,7 @@ fun DrawScope.drawPerfectTroll(size: Float, alpha: Float) {
         ),
         start = Offset(0f, 0f), end = Offset(size, size)
     )
-    scale(scale, scale, pivot = Offset(0f, 0f)) {
+    scale(factor, factor, pivot = Offset(0f, 0f)) {
         drawPath(trollPath, goldBrush)
     }
 }
