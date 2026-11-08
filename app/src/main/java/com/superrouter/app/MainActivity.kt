@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -107,7 +109,10 @@ class MainActivity : ComponentActivity() {
 fun RootScreen(vm: ChatVM = viewModel()) {
     val ctx = LocalContext.current
     LaunchedEffect(Unit) { UiState.load(ctx) }
-    val form = UiState.forceForm ?: DeviceMode.of(ctx)
+    
+    // 监听屏幕旋转，实时重组
+    val configuration = LocalConfiguration.current
+    val form = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) FormFactor.Tablet else FormFactor.Phone
 
     val sessions by vm.sessions.collectAsState()
     val currentId by vm.currentId.collectAsState()
@@ -115,6 +120,9 @@ fun RootScreen(vm: ChatVM = viewModel()) {
 
     var drawerOpen by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    
+    // 平板模式侧栏收缩状态
+    var isSidebarOpen by remember { mutableStateOf(true) }
 
     var showRepo by remember { mutableStateOf(false) }
     var showTree by remember { mutableStateOf(false) }
@@ -129,9 +137,12 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         WallpaperLayer(form)
 
         if (form == FormFactor.Tablet) {
+            // 平板模式：直接双栏
             TabletScreen(
                 vm = vm,
                 current = current,
+                isSidebarOpen = isSidebarOpen,
+                onToggleSidebar = { isSidebarOpen = !isSidebarOpen },
                 onNew = { showRepo = true },
                 onSettings = { showSettings = true },
                 onLan = { showLan = true },
@@ -141,9 +152,10 @@ fun RootScreen(vm: ChatVM = viewModel()) {
                 onPalette = { showPalette = true }
             )
         } else {
+            // 手机模式：禁用侧滑(gesturesEnabled = false)，必须点菜单键，防止卡死
             ModalNavigationDrawer(
                 drawerState = drawerState,
-                gesturesEnabled = true,
+                gesturesEnabled = false, 
                 drawerContent = {
                     GlassSessionDrawer(
                         vm = vm,
@@ -169,7 +181,11 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         }
     }
 
-    LaunchedEffect(drawerOpen) { if (drawerOpen) drawerState.open() else drawerState.close() }
+    LaunchedEffect(drawerOpen) { 
+        if (form == FormFactor.Phone) {
+            if (drawerOpen) drawerState.open() else drawerState.close() 
+        }
+    }
 
     if (showCool) CoolDialog(vm) { showCool = false }
     if (showLan) LanDialog(vm) { showLan = false }
@@ -189,8 +205,8 @@ fun RootScreen(vm: ChatVM = viewModel()) {
         onCool = { showCool = true },
         onToken = { showToken = true },
         onSettings = { showSettings = true },
-        onTogglePhone = { UiState.forceForm = FormFactor.Phone },
-        onToggleTablet = { UiState.forceForm = FormFactor.Tablet }
+        onTogglePhone = { },
+        onToggleTablet = { }
     )
 }
 
@@ -991,7 +1007,7 @@ fun RepoDialog(vm: ChatVM, onDismiss: () -> Unit) {
 @Composable
 fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    val form = UiState.forceForm ?: DeviceMode.of(ctx)
+    val form = DeviceMode.of(ctx)
 
     var editForm by remember { mutableStateOf(form) }
     var tick by remember { mutableStateOf(0) }
@@ -1083,7 +1099,6 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                                 .background(if (on) GoldGradient else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent)))
                                 .clickable { 
                                     editForm = f 
-                                    UiState.forceForm = f // 切换时立即应用布局，让你直观看到换壁纸的效果
                                     UiState.save(ctx)
                                 }
                                 .padding(vertical = 8.dp),

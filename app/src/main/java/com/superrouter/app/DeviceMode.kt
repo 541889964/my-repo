@@ -1,6 +1,7 @@
 package com.superrouter.app
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -9,8 +10,8 @@ enum class FormFactor { Phone, Tablet }
 
 object DeviceMode {
     fun of(context: Context): FormFactor {
-        val w = context.resources.configuration.screenWidthDp
-        return if (w >= 600) FormFactor.Tablet else FormFactor.Phone
+        val orientation = context.resources.configuration.orientation
+        return if (orientation == Configuration.ORIENTATION_LANDSCAPE) FormFactor.Tablet else FormFactor.Phone
     }
 }
 
@@ -21,7 +22,6 @@ object UiState {
     var phoneDynamicPath by mutableStateOf<String?>(null)
     var tabletStaticPath  by mutableStateOf<String?>(null)
     var tabletDynamicPath by mutableStateOf<String?>(null)
-    var forceForm by mutableStateOf<FormFactor?>(null)
 
     fun load(context: Context) {
         val p = context.getSharedPreferences("sr_ui", Context.MODE_PRIVATE)
