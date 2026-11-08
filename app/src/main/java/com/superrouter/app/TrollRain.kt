@@ -50,7 +50,17 @@ fun TrollRainOverlay() {
         }
     }
 
-    val time by withInfiniteAnimationFrameMillis()
+    // 修复无限动画错误
+    val infiniteTransition = rememberInfiniteTransition(label = "troll")
+    val tick by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "tick"
+    )
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val w = size.width
@@ -81,7 +91,6 @@ fun TrollRainOverlay() {
 }
 
 fun DrawScope.drawGoldenTroll(s: Float, alpha: Float) {
-    // 黄金流体渐变
     val goldBrush = Brush.linearGradient(
         colors = listOf(
             Color(0xFFFFF4D0).copy(alpha = alpha),
@@ -94,8 +103,7 @@ fun DrawScope.drawGoldenTroll(s: Float, alpha: Float) {
     )
 
     val path = Path().apply {
-        // 标准 Trollface 轮廓（基于经典矢量还原）
-        // 1. 头部轮廓（类似拉长的椭圆，下巴略尖）
+        // 1. 头部轮廓
         moveTo(s * 0.5f, s * 0.1f)
         cubicTo(s * 0.8f, s * 0.1f, s * 0.95f, s * 0.4f, s * 0.95f, s * 0.6f)
         cubicTo(s * 0.95f, s * 0.85f, s * 0.7f, s * 0.95f, s * 0.5f, s * 0.95f)
@@ -103,28 +111,27 @@ fun DrawScope.drawGoldenTroll(s: Float, alpha: Float) {
         cubicTo(s * 0.05f, s * 0.4f, s * 0.2f, s * 0.1f, s * 0.5f, s * 0.1f)
         close()
 
-        // 2. 邪魅的挑眉（左）
+        // 2. 左眉
         moveTo(s * 0.2f, s * 0.35f)
         quadraticBezierTo(s * 0.35f, s * 0.25f, s * 0.45f, s * 0.32f)
         lineTo(s * 0.42f, s * 0.35f)
         quadraticBezierTo(s * 0.35f, s * 0.3f, s * 0.22f, s * 0.38f)
         close()
 
-        // 3. 邪魅的挑眉（右）
+        // 3. 右眉
         moveTo(s * 0.8f, s * 0.35f)
         quadraticBezierTo(s * 0.65f, s * 0.25f, s * 0.55f, s * 0.32f)
         lineTo(s * 0.58f, s * 0.35f)
         quadraticBezierTo(s * 0.65f, s * 0.3f, s * 0.78f, s * 0.38f)
         close()
 
-        // 4. 标志性的大咧嘴
+        // 4. 大笑嘴巴
         moveTo(s * 0.15f, s * 0.6f)
         cubicTo(s * 0.4f, s * 0.85f, s * 0.6f, s * 0.85f, s * 0.85f, s * 0.6f)
-        // 嘴巴下边缘往回勾，形成邪恶弧度
         cubicTo(s * 0.7f, s * 0.75f, s * 0.3f, s * 0.75f, s * 0.15f, s * 0.6f)
         close()
         
-        // 5. 牙齿缝隙线
+        // 5. 牙齿缝隙
         moveTo(s * 0.3f, s * 0.68f)
         lineTo(s * 0.35f, s * 0.78f)
         moveTo(s * 0.45f, s * 0.73f)
@@ -135,12 +142,12 @@ fun DrawScope.drawGoldenTroll(s: Float, alpha: Float) {
 
     drawPath(path, goldBrush)
 
-    // 6. 眼睛瞳孔（深邃的暗金黑）
+    // 6. 瞳孔
     val pupilColor = Color(0xFF1A1710).copy(alpha = alpha)
     drawCircle(pupilColor, radius = s * 0.04f, center = Offset(s * 0.35f, s * 0.42f))
     drawCircle(pupilColor, radius = s * 0.04f, center = Offset(s * 0.65f, s * 0.42f))
 
-    // 7. 鼻子小阴影
+    // 7. 鼻子
     val nosePath = Path().apply {
         moveTo(s * 0.45f, s * 0.5f)
         quadraticBezierTo(s * 0.5f, s * 0.55f, s * 0.55f, s * 0.5f)

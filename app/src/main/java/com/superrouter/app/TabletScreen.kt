@@ -1,11 +1,12 @@
 package com.superrouter.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -28,16 +29,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ============================================================
-//  TabletScreen — 平板模式双栏布局
-//  左：常驻会话侧栏（320dp 玻璃）
-//  右：主对话区
-// ============================================================
-
 @Composable
 fun TabletScreen(
     vm: ChatVM,
     current: Session?,
+    isSidebarOpen: Boolean,
+    onToggleSidebar: () -> Unit,
     onNew: () -> Unit,
     onSettings: () -> Unit,
     onLan: () -> Unit,
@@ -47,18 +44,30 @@ fun TabletScreen(
     onPalette: () -> Unit
 ) {
     Row(Modifier.fillMaxSize()) {
-        TabletSidebar(
-            vm = vm,
-            current = current,
-            onNew = onNew,
-            onSettings = onSettings,
-            modifier = Modifier.width(320.dp).fillMaxHeight()
-        )
+        AnimatedVisibility(
+            visible = isSidebarOpen,
+            enter = slideInHorizontally(initialOffsetX = { -it }),
+            exit = slideOutHorizontally(targetOffsetX = { -it })
+        ) {
+            TabletSidebar(
+                vm = vm,
+                current = current,
+                onNew = onNew,
+                onSettings = onSettings,
+                modifier = Modifier.width(320.dp).fillMaxHeight()
+            )
+        }
 
-        Spacer(Modifier.width(10.dp))
-
-        Column(Modifier.weight(1f).fillMaxHeight()) {
-            TabletHeader(current, onLan, onTree, onCool, onPalette)
+        Column(Modifier.weight(1f).fillMaxHeight().padding(start = if(isSidebarOpen) 0.dp else 10.dp)) {
+            TabletHeader(
+                current = current, 
+                isSidebarOpen = isSidebarOpen, 
+                onToggleSidebar = onToggleSidebar, 
+                onLan = onLan, 
+                onTree = onTree, 
+                onCool = onCool, 
+                onPalette = onPalette
+            )
             Spacer(Modifier.height(6.dp))
             InsightDeck(vm)
             Spacer(Modifier.height(8.dp))
@@ -178,6 +187,8 @@ fun TabletSidebar(
 @Composable
 fun TabletHeader(
     current: Session?,
+    isSidebarOpen: Boolean,
+    onToggleSidebar: () -> Unit,
     onLan: () -> Unit,
     onTree: () -> Unit,
     onCool: () -> Unit,
@@ -198,6 +209,12 @@ fun TabletHeader(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // 侧边栏收缩按钮
+                IconButton(onClick = onToggleSidebar, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.Menu, null, tint = Gold, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(8.dp))
+
                 Box(
                     Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(GoldGradient)
                         .combinedClickable(
