@@ -18,10 +18,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 object TrollState {
@@ -37,6 +40,7 @@ data class TrollItem(
     val speedOffset: Float,
     val rotSpeed: Float,
     var rotation: Float,
+    var flipAngle: Float, // 3D翻转角度
     val alpha: Float
 )
 
@@ -47,18 +51,15 @@ fun TrollRainOverlay() {
     val context = LocalContext.current
     val items = remember { mutableStateListOf<TrollItem>() }
     
-    // 加载图片
     val bitmap = remember {
         try {
             BitmapFactory.decodeResource(context.resources, R.drawable.troll_face)?.asImageBitmap()
         } catch (e: Throwable) { null }
     }
 
-    // 陀螺仪数据
     var tiltX by remember { mutableStateOf(0f) }
     var tiltY by remember { mutableStateOf(0f) }
 
-    // 注册传感器
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
@@ -69,8 +70,6 @@ fun TrollRainOverlay() {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
                     val orientation = FloatArray(3)
                     SensorManager.getOrientation(rotationMatrix, orientation)
-                    // orientation[1] 是 pitch (上下倾斜), orientation[2] 是 roll (左右倾斜)
-                    // 乘以放大系数让晃动更明显
                     tiltX = orientation[2] * 200f 
                     tiltY = orientation[1] * 200f
                 }
@@ -90,14 +89,14 @@ fun TrollRainOverlay() {
                 x = Random.nextFloat(),
                 y = Random.nextFloat() * -2f,
                 speedOffset = Random.nextFloat() * 0.6f + 0.4f,
-                rotSpeed = (Random.nextFloat() * 4f - 2f),
+                rotSpeed = (Random.nextFloat() * 2f - 1f),
                 rotation = Random.nextFloat() * 360f,
+                flipAngle = Random.nextFloat() * 360f,
                 alpha = Random.nextFloat() * 0.4f + 0.6f
             ))
         }
     }
 
-    // 使用 infiniteTransition 确保一直刷新
     val infiniteTransition = rememberInfiniteTransition(label = "troll")
     val tick by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 1f,
@@ -106,15 +105,12 @@ fun TrollRainOverlay() {
     )
 
     Canvas(modifier = Modifier.fillMaxSize()) {
-        // 强行读取 tick 以触发重绘
         val forceRedraw = tick
-
         val w = size.width
         val h = size.height
         val s = TrollState.size.toFloat()
 
         items.forEach { item ->
-            // 根据速度下落
             val fallSpeed = 0.0005f * item.speedOffset * TrollState.speed
             item.y += fallSpeed * 16f 
             
@@ -124,27 +120,31 @@ fun TrollRainOverlay() {
             }
             
             item.rotation += item.rotSpeed * TrollState.speed
+            item.flipAngle += item.rotSpeed * 2f * TrollState.speed
 
-            // 计算受重力影响的坐标
             val drawX = item.x * w + tiltX
             val drawY = item.y * h + tiltY
 
+            // 3D 翻转核心：利用 cos 函数计算水平缩放
+            val flipScale = cos(Math.toRadians(item.flipAngle.toDouble())).toFloat()
+
             translate(left = drawX, top = drawY) {
                 rotate(degrees = item.rotation, pivot = Offset(s/2, s/2)) {
-                    if (bitmap != null) {
-                        // 创建圆角裁剪路径
-                        val cornerRadius = s * 0.15f
-                        val path = Path().apply {
-                            addRoundRect(RoundRect(0f, 0f, s, s, CornerRadius(cornerRadius, cornerRadius)))
-                        }
-                        // 用圆角路径裁剪后画图
-                        clipPath(path) {
-                            drawImage(
-                                image = bitmap,
-                                dstOffset = IntOffset(0, 0),
-                                dstSize = IntSize(s.toInt(), s.toInt()),
-                                alpha = item.alpha
-                            )
+                    // 应用水平缩放模拟 3D 翻转
+                    scale(scaleX = flipScale, scaleY = 1f, pivot = Offset(s/2, s/2)) {
+                        if (bitmap != null) {
+                            val cornerRadius = s * 0.15f
+                            val path = Path().apply {
+                                addRoundRect(RoundRect(0f, 0f, s, s, CornerRadius(cornerRadius, cornerRadius)))
+                            }
+                            clipPath(path) {
+                                drawImage(
+                                    image = bitmap,
+                                    dstOffset = IntOffset(0, 0),
+                                    dstSize = IntSize(s.toInt(), s.toInt()),
+                                    alpha = item.alpha
+                                )
+                            }
                         }
                     }
                 }

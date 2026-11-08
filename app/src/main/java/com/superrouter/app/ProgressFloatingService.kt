@@ -126,7 +126,9 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                updatePosition()
+                gravity = if (FloatingState.mode == 1) Gravity.TOP or Gravity.CENTER_HORIZONTAL else Gravity.TOP or Gravity.START
+                x = if (FloatingState.mode == 1) 0 else 20
+                y = if (FloatingState.mode == 1) 80 else 200
             }
             
             composeView?.setOnTouchListener(object : View.OnTouchListener {
@@ -151,14 +153,6 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
             })
 
             windowManager?.addView(composeView, params)
-            
-            // 监听模式切换，动态改变窗口位置（居中还是靠左）
-            composeView?.let { view ->
-                view.post {
-                    // 如果是灵动岛，自动居中；如果是浮窗，靠左
-                    // 这里为了简单，在 onStartCommand 处理
-                }
-            }
         } catch (e: Throwable) {
             android.util.Log.e("FloatService", "showWindow err: ${e.message}")
         }
@@ -189,7 +183,6 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
 
 @Composable
 fun IslandOverlay() {
-    // 必须用 State 监听才能重组
     val name = FloatingState.name
     val step = FloatingState.step
     val action = FloatingState.action
