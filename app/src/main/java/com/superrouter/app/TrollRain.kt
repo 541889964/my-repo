@@ -1,20 +1,18 @@
 package com.superrouter.app
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.superrouter.app.R
 import kotlin.random.Random
 
 object TrollState {
@@ -38,8 +36,14 @@ fun TrollRainOverlay() {
     if (!TrollState.enabled || TrollState.count == 0) return
 
     val items = remember { mutableStateListOf<TrollItem>() }
-    // 直接加载打包进源码的图片
-    val bitmap = imageResource(id = R.drawable.troll_face)
+    val context = LocalContext.current
+    
+    // 修复：使用标准的 BitmapFactory 加载 Drawable 资源
+    val bitmap = remember {
+        try {
+            BitmapFactory.decodeResource(context.resources, R.drawable.troll_face)?.asImageBitmap()
+        } catch (e: Throwable) { null }
+    }
 
     LaunchedEffect(TrollState.count) {
         items.clear()
@@ -80,12 +84,14 @@ fun TrollRainOverlay() {
 
             translate(left = item.x * w, top = item.y * h) {
                 rotate(degrees = item.rotation, pivot = Offset(s/2, s/2)) {
-                    drawImage(
-                        image = bitmap,
-                        dstOffset = IntOffset(0, 0),
-                        dstSize = IntSize(s.toInt(), s.toInt()),
-                        alpha = item.alpha
-                    )
+                    if (bitmap != null) {
+                        drawImage(
+                            image = bitmap,
+                            dstOffset = IntOffset(0, 0),
+                            dstSize = IntSize(s.toInt(), s.toInt()),
+                            alpha = item.alpha
+                        )
+                    }
                 }
             }
         }

@@ -42,11 +42,12 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
-import androidx.compose.ui.platform.ViewTreeLifecycleOwner
-import androidx.compose.ui.platform.ViewTreeSavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
 class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
     companion object {
@@ -111,8 +112,6 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
         val step = intent?.getIntExtra(EXTRA_STEP, -1) ?: -1
         val action = intent?.getStringExtra(EXTRA_ACTION)
         val mode = intent?.getIntExtra(EXTRA_MODE, stateMode.value) ?: stateMode.value
-        
-        // 暴力包裹防崩溃
         val cooldown = try { intent?.getDoubleExtra(EXTRA_COOLDOWN, 0.0) ?: 0.0 } catch (e: Throwable) { 0.0 }
         val cooldownTotal = try { intent?.getDoubleExtra(EXTRA_COOLDOWN_TOTAL, 0.0) ?: 0.0 } catch (e: Throwable) { 0.0 }
 
@@ -143,9 +142,10 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
             windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
             
             composeView = ComposeView(this).apply {
-                // 关键修复：给 ComposeView 注入生命周期，防止动画和状态崩溃
-                ViewTreeLifecycleOwner.set(this, this@ProgressFloatingService)
-                ViewTreeSavedStateRegistryOwner.set(this, this@ProgressFloatingService)
+                // 使用正确的扩展函数注入生命周期
+                setViewTreeLifecycleOwner(this@ProgressFloatingService)
+                setViewTreeSavedStateRegistryOwner(this@ProgressFloatingService)
+                setViewTreeViewModelStoreOwner(this@ProgressFloatingService)
                 
                 setContent {
                     MaterialTheme(colorScheme = AppDark, typography = AppTypography) {
