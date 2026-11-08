@@ -52,14 +52,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwner, ViewModelStoreOwner {
     companion object {
         const val ACTION_SHOW = "show"
-        const val ACTION_UPDATE = "update"
         const val ACTION_HIDE = "hide"
-        const val EXTRA_NAME = "name"
-        const val EXTRA_STEP = "step"
-        const val EXTRA_ACTION = "action"
-        const val EXTRA_MODE = "mode"
-        const val EXTRA_COOLDOWN = "cooldown"
-        const val EXTRA_COOLDOWN_TOTAL = "cooldown_total"
         const val CHANNEL_ID = "superrouter_float"
         const val NOTIF_ID = 2
     }
@@ -75,14 +68,6 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
     private var windowManager: WindowManager? = null
     private var composeView: ComposeView? = null
     private var params: WindowManager.LayoutParams? = null
-    
-    private val stateName = mutableStateOf("AI任务")
-    private val stateStep = mutableStateOf(0)
-    private val stateAction = mutableStateOf("准备中")
-    private val stateMode = mutableStateOf(0)
-    private val stateCooldown = mutableStateOf(0.0)
-    private val stateCooldownTotal = mutableStateOf(0.0)
-    private val isExpanded = mutableStateOf(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -108,29 +93,7 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
         val act = intent?.action ?: ACTION_SHOW
         if (act == ACTION_HIDE) { hideWindow(); return START_NOT_STICKY }
 
-        val name = intent?.getStringExtra(EXTRA_NAME)
-        val step = intent?.getIntExtra(EXTRA_STEP, -1) ?: -1
-        val action = intent?.getStringExtra(EXTRA_ACTION)
-        val mode = intent?.getIntExtra(EXTRA_MODE, stateMode.value) ?: stateMode.value
-        val cooldown = try { intent?.getDoubleExtra(EXTRA_COOLDOWN, 0.0) ?: 0.0 } catch (e: Throwable) { 0.0 }
-        val cooldownTotal = try { intent?.getDoubleExtra(EXTRA_COOLDOWN_TOTAL, 0.0) ?: 0.0 } catch (e: Throwable) { 0.0 }
-
-        if (mode == 2) { hideWindow(); return START_NOT_STICKY }
-
-        if (name != null) stateName.value = name
-        if (step >= 0) stateStep.value = step
-        if (action != null) stateAction.value = action
-        stateCooldown.value = cooldown
-        if (cooldownTotal > 0.0) stateCooldownTotal.value = cooldownTotal
-        
-        if (stateMode.value != mode) {
-            stateMode.value = mode
-            isExpanded.value = false
-            hideWindow()
-            showWindow()
-        } else {
-            if (composeView == null) showWindow()
-        }
+        if (composeView == null) showWindow()
         return START_NOT_STICKY
     }
 
@@ -142,23 +105,16 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
             windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
             
             composeView = ComposeView(this).apply {
-                // 使用正确的扩展函数注入生命周期
                 setViewTreeLifecycleOwner(this@ProgressFloatingService)
                 setViewTreeSavedStateRegistryOwner(this@ProgressFloatingService)
                 setViewTreeViewModelStoreOwner(this@ProgressFloatingService)
                 
                 setContent {
                     MaterialTheme(colorScheme = AppDark, typography = AppTypography) {
-                        when (stateMode.value) {
-                            1 -> IslandOverlay(
-                                name = stateName.value, step = stateStep.value, 
-                                action = stateAction.value, cooldown = stateCooldown.value, cooldownTotal = stateCooldownTotal.value,
-                                expanded = isExpanded.value, onToggle = { isExpanded.value = !isExpanded.value }, onClose = { hideWindow() }
-                            )
-                            else -> FloatOverlay(
-                                name = stateName.value, step = stateStep.value, 
-                                action = stateAction.value, cooldown = stateCooldown.value, cooldownTotal = stateCooldownTotal.value, onClose = { hideWindow() }
-                            )
+                        if (FloatingState.mode == 1) {
+                            IslandOverlay()
+                        } else if (FloatingState.mode == 0) {
+                            FloatOverlay()
                         }
                     }
                 }
@@ -170,15 +126,13 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = if (stateMode.value == 1) Gravity.TOP or Gravity.CENTER_HORIZONTAL else Gravity.TOP or Gravity.START
-                x = if (stateMode.value == 1) 0 else 20
-                y = if (stateMode.value == 1) 80 else 200
+                updatePosition()
             }
             
             composeView?.setOnTouchListener(object : View.OnTouchListener {
                 var downX = 0f; var downY = 0f; var startX = 0; var startY = 0; var dragging = false
                 override fun onTouch(v: View?, event: MotionEvent): Boolean {
-                    if (stateMode.value == 1) return false
+                    if (FloatingState.mode == 1) return false
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
                             downX = event.rawX; downY = event.rawY; startX = params?.x ?: 0; startY = params?.y ?: 0; dragging = false
@@ -197,27 +151,52 @@ class ProgressFloatingService : Service(), LifecycleOwner, SavedStateRegistryOwn
             })
 
             windowManager?.addView(composeView, params)
+            
+            // 监听模式切换，动态改变窗口位置（居中还是靠左）
+            composeView?.let { view ->
+                view.post {
+                    // 如果是灵动岛，自动居中；如果是浮窗，靠左
+                    // 这里为了简单，在 onStartCommand 处理
+                }
+            }
         } catch (e: Throwable) {
             android.util.Log.e("FloatService", "showWindow err: ${e.message}")
         }
     }
 
+    fun updatePosition() {
+        try {
+            params?.gravity = if (FloatingState.mode == 1) Gravity.TOP or Gravity.CENTER_HORIZONTAL else Gravity.TOP or Gravity.START
+            params?.x = if (FloatingState.mode == 1) 0 else 20
+            params?.y = if (FloatingState.mode == 1) 80 else 200
+            windowManager?.updateViewLayout(composeView, params)
+        } catch (_: Throwable) {}
+    }
+
     private fun hideWindow() {
         try { if (composeView != null) windowManager?.removeView(composeView) } catch (_: Throwable) {}
         composeView = null
+        try { stopSelf() } catch (_: Throwable) {}
     }
 
     override fun onDestroy() {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()
         hideWindow()
-        try { stopSelf() } catch (_: Throwable) {}
         super.onDestroy()
     }
 }
 
 @Composable
-fun IslandOverlay(name: String, step: Int, action: String, cooldown: Double, cooldownTotal: Double, expanded: Boolean, onToggle: () -> Unit, onClose: () -> Unit) {
+fun IslandOverlay() {
+    // 必须用 State 监听才能重组
+    val name = FloatingState.name
+    val step = FloatingState.step
+    val action = FloatingState.action
+    val cooldown = FloatingState.cooldown
+    val cooldownTotal = FloatingState.cooldownTotal
+    val expanded = FloatingState.isExpanded
+
     val isCooling = cooldown > 0.0
     val glowColor = if (isCooling) DeepSeekWarning else Gold
     
@@ -227,7 +206,7 @@ fun IslandOverlay(name: String, step: Int, action: String, cooldown: Double, coo
             .clip(RoundedCornerShape(30.dp))
             .background(Color(0xEE0B0A07))
             .border(1.5.dp, Brush.linearGradient(listOf(glowColor, GoldDeep, glowColor)), RoundedCornerShape(30.dp))
-            .clickable { onToggle() }
+            .clickable { FloatingState.isExpanded = !FloatingState.isExpanded }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -252,8 +231,8 @@ fun IslandOverlay(name: String, step: Int, action: String, cooldown: Double, coo
                         LinearProgressIndicator(progress = progress, modifier = Modifier.width(160.dp).height(4.dp).clip(RoundedCornerShape(2.dp)), color = DeepSeekWarning, trackColor = DeepSeekSurfaceHigh)
                     }
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(DeepSeekSurfaceHigh).clickable { onClose() }.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                        Text("收起 / 关闭", color = DeepSeekMuted, fontSize = 10.sp)
+                    Box(Modifier.clip(RoundedCornerShape(12.dp)).background(DeepSeekSurfaceHigh).padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        Text("点击收起", color = DeepSeekMuted, fontSize = 10.sp)
                     }
                 }
             }
@@ -262,7 +241,13 @@ fun IslandOverlay(name: String, step: Int, action: String, cooldown: Double, coo
 }
 
 @Composable
-fun FloatOverlay(name: String, step: Int, action: String, cooldown: Double, cooldownTotal: Double, onClose: () -> Unit) {
+fun FloatOverlay() {
+    val name = FloatingState.name
+    val step = FloatingState.step
+    val action = FloatingState.action
+    val cooldown = FloatingState.cooldown
+    val cooldownTotal = FloatingState.cooldownTotal
+
     val isCooling = cooldown > 0.0
     val glowColor = if (isCooling) DeepSeekWarning else Gold
     
@@ -280,9 +265,6 @@ fun FloatOverlay(name: String, step: Int, action: String, cooldown: Double, cool
                 Box(Modifier.size(10.dp).clip(CircleShape).background(glowColor))
                 Spacer(Modifier.width(10.dp))
                 Text(name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Box(Modifier.size(24.dp).clip(CircleShape).background(DeepSeekSurfaceHigh.copy(alpha = 0.8f)).clickable { onClose() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Close, null, tint = DeepSeekMuted, modifier = Modifier.size(14.dp))
-                }
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

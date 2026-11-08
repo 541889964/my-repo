@@ -78,7 +78,18 @@ class ChatVM(app: Application) : AndroidViewModel(app) {
     fun setCooldownMaxSec(sec: Int) { _cooldownMaxSec.value = sec.coerceIn(0, 60) }
     fun setDeepThink(on: Boolean) { _deepThink.value = on }
     fun setSmartSearch(on: Boolean) { _smartSearch.value = on }
-    fun setOverlayMode(mode: Int) { _overlayMode.value = mode.coerceIn(0, 2) }
+    fun setOverlayMode(mode: Int) { 
+        _overlayMode.value = mode.coerceIn(0, 2) 
+        if (FloatingState.mode != mode) {
+            FloatingState.mode = mode
+            try {
+                val ctx = getApplication<android.app.Application>()
+                val i = android.content.Intent(ctx, ProgressFloatingService::class.java)
+                i.action = ProgressFloatingService.ACTION_SHOW
+                if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+            } catch (_: Throwable) {}
+        }
+    }
     fun setCooldownMaxMs(ms: Double) { _cooldownMaxMs.value = ms.coerceIn(0.0, 600000.0); _cooldownMaxSec.value = (ms / 1000).toInt() }
     fun setCooldownMinMs(ms: Double) { _cooldownMinMs.value = ms.coerceIn(0.0, _cooldownMaxMs.value) }
     // ★ 一次性设置区间（毫秒）：setCooldownRange(500.0, 3000.0) = 0.5~3秒随机
@@ -131,26 +142,34 @@ class ChatVM(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startFloat(run: AgentRun) {
+        if (_overlayMode.value == 2) return
         try {
+            FloatingState.name = run.chineseName ?: run.task.take(12)
+            FloatingState.step = 0
+            FloatingState.action = "准备中"
+            FloatingState.mode = _overlayMode.value
+            FloatingState.cooldown = 0.0
+            
             val ctx = getApplication<android.app.Application>()
             val i = android.content.Intent(ctx, ProgressFloatingService::class.java)
             i.action = ProgressFloatingService.ACTION_SHOW
-            i.putExtra(ProgressFloatingService.EXTRA_NAME, run.chineseName ?: run.task.take(12))
-            i.putExtra(ProgressFloatingService.EXTRA_STEP, 0)
-            i.putExtra(ProgressFloatingService.EXTRA_ACTION, "准备中")
             if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
         } catch (_: Throwable) {}
     }
 
     private fun updateFloat(run: AgentRun) {
+        if (_overlayMode.value == 2) {
+            hideFloat()
+            return
+        }
         try {
-            val ctx = getApplication<android.app.Application>()
-            val i = android.content.Intent(ctx, ProgressFloatingService::class.java)
-            i.action = ProgressFloatingService.ACTION_UPDATE
-            i.putExtra(ProgressFloatingService.EXTRA_NAME, run.chineseName ?: run.task.take(12))
-            i.putExtra(ProgressFloatingService.EXTRA_STEP, run.steps.size)
-            i.putExtra(ProgressFloatingService.EXTRA_ACTION, run.currentProgress.take(80))
-            if (android.os.Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+            FloatingState.name = run.chineseName ?: run.task.take(12)
+            FloatingState.step = run.steps.size
+            FloatingState.action = run.currentProgress.take(80)
+            FloatingState.mode = _overlayMode.value
+            FloatingState.cooldown = run.cooldownRemaining
+            FloatingState.cooldownTotal = run.cooldownTotal
+            // 不再每次发送 Intent，UI 自动刷新
         } catch (_: Throwable) {}
     }
 
