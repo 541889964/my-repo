@@ -46,6 +46,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -442,19 +444,36 @@ fun GlassInputBar(vm: ChatVM) {
     var input by remember { mutableStateOf("") }
 
     Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
-        Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.xl)).background(DeepSeekSurfaceHigh).border(1.dp, if (input.isNotBlank()) Gold.copy(alpha = 0.6f) else DeepSeekBorder, RoundedCornerShape(Radius.xl))) {
+        val running by vm.running.collectAsState()
+        val pulseAlpha = if (running) {
+            val infinite = rememberInfiniteTransition()
+            val alpha by infinite.animateFloat(initialValue = 0.2f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse))
+            alpha
+        } else 1f
+        
+        Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.xl)).background(DeepSeekSurfaceHigh).border(1.5.dp, if (running) Gold.copy(alpha = pulseAlpha) else if (input.isNotBlank()) Gold.copy(alpha = 0.6f) else DeepSeekBorder, RoundedCornerShape(Radius.xl))) {
             BasicTextField(value = input, onValueChange = { input = it }, textStyle = TextStyle(color = DeepSeekText, fontSize = 15.sp), cursorBrush = SolidColor(Gold), modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp), maxLines = 5, keyboardOptions = KeyboardOptions.Default, decorationBox = { inner -> if (input.isEmpty()) Text("要让 AI 做什么？", color = DeepSeekMuted, fontSize = 15.sp); inner() })
         }
         Spacer(Modifier.width(8.dp))
         if (running) {
-            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekError).clickable { vm.stopCurrent() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
+            Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekError).clickable { SoundManager.play(); vm.stopCurrent() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Stop, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         } else if (current?.pendingPrompt != null) {
             Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSurfaceHigh).clickable { vm.skipCurrent() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.SkipNext, null, tint = Gold, modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(6.dp))
             Box(Modifier.size(50.dp).clip(CircleShape).background(DeepSeekSuccess).clickable { vm.resumeLast() }, contentAlignment = Alignment.Center) { Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp)) }
         } else {
             val ok = input.isNotBlank()
-            Box(Modifier.size(50.dp).clip(CircleShape).background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh))).clickable { if (ok) { vm.send(input); input = "" } }, contentAlignment = Alignment.Center) { Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp)) }
+            val haptic = LocalHapticFeedback.current
+            Box(Modifier.size(50.dp).clip(CircleShape).background(if (ok) GoldGradient else Brush.linearGradient(listOf(DeepSeekSurfaceHigh, DeepSeekSurfaceHigh))).clickable { 
+                if (ok) { 
+                    SoundManager.play()
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    vm.send(input)
+                    input = "" 
+                } 
+            }, contentAlignment = Alignment.Center) { 
+                Icon(Icons.Default.ArrowUpward, null, tint = if (ok) Color(0xFF1A1710) else DeepSeekMuted, modifier = Modifier.size(24.dp)) 
+            }
         }
     }
 }
@@ -474,7 +493,7 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(GoldGradient))
             Column(Modifier.padding(16.dp)) {
-                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(GoldGradient).clickable { onNew() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(Radius.md)).background(GoldGradient).clickable { SoundManager.play(); onNew() }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                     Icon(Icons.Default.Add, null, tint = Color(0xFF1A1710), modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("新建项目", color = Color(0xFF1A1710), fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -483,7 +502,7 @@ fun GlassSessionDrawer(vm: ChatVM, currentId: String?, onClose: () -> Unit, onNe
             Text("会话", color = DeepSeekMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 items(sessions.reversed()) { s ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(Radius.md)).background(if (s.id == currentId) Gold.copy(alpha = 0.10f) else Color.Transparent).border(1.dp, if (s.id == currentId) Gold.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(Radius.md)).clickable { vm.selectSession(s.id); onClose() }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(Radius.md)).background(if (s.id == currentId) Gold.copy(alpha = 0.10f) else Color.Transparent).border(1.dp, if (s.id == currentId) Gold.copy(alpha = 0.35f) else Color.Transparent, RoundedCornerShape(Radius.md)).clickable { SoundManager.play(); vm.selectSession(s.id); onClose() }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(if (s.id == currentId) Gold else DeepSeekBorder))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
@@ -732,6 +751,22 @@ fun SettingsDialog(vm: ChatVM, onDismiss: () -> Unit) {
                         var trollCount by remember { mutableStateOf(TrollState.count) }
 
                         Column(Modifier.fillMaxWidth().background(DeepSeekSurfaceHigh, RoundedCornerShape(Radius.sm)).padding(12.dp)) {
+                            // 声音设置
+                            Text("点击音效", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf(0 to "关", 1 to "清脆", 2 to "机械", 3 to "水滴", 4 to "打字机").forEach { (m, label) ->
+                                    val on = SoundManager.soundMode == m
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(Radius.sm)).background(if (on) Gold.copy(alpha = 0.2f) else DeepSeekCodeBg).border(1.dp, if (on) Gold else DeepSeekBorder, RoundedCornerShape(Radius.sm)).clickable { 
+                                        SoundManager.soundMode = m
+                                        SoundManager.play() 
+                                    }.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                                        Text(label, color = if (on) Gold else DeepSeekMuted, fontSize = 10.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                            // 巨魔开关
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text("巨魔流星雨", color = Gold, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 Checkbox(checked = trollEnabled, onCheckedChange = { trollEnabled = it; TrollState.enabled = it; if (!it) { TrollState.count = 0 } }, colors = CheckboxDefaults.colors(checkedColor = Gold))

@@ -175,6 +175,7 @@ object DeepSeekApi {
         }
 
         if (!hasValidData) return Result(false, parentId, "空响应", usage, ErrorType.SESSION_INVALID)
-        return Result(true, newPid, "", usage, ErrorType.NONE)
+        val finalUsage = if (usage > 0) usage else ((prompt.length + fullContent.length) / 3L + 1L)
+        return Result(true, newPid, "", finalUsage, ErrorType.NONE)
     }
 }

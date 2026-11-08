@@ -11,12 +11,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -24,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.random.Random
 
 object TrollState {
@@ -40,7 +35,7 @@ data class TrollItem(
     val speedOffset: Float,
     val rotSpeed: Float,
     var rotation: Float,
-    var flipAngle: Float, // 3D翻转角度
+    var flipAngle: Float,
     val alpha: Float
 )
 
@@ -125,26 +120,19 @@ fun TrollRainOverlay() {
             val drawX = item.x * w + tiltX
             val drawY = item.y * h + tiltY
 
-            // 3D 翻转核心：利用 cos 函数计算水平缩放
             val flipScale = cos(Math.toRadians(item.flipAngle.toDouble())).toFloat()
 
             translate(left = drawX, top = drawY) {
                 rotate(degrees = item.rotation, pivot = Offset(s/2, s/2)) {
-                    // 应用水平缩放模拟 3D 翻转
                     scale(scaleX = flipScale, scaleY = 1f, pivot = Offset(s/2, s/2)) {
                         if (bitmap != null) {
-                            val cornerRadius = s * 0.15f
-                            val path = Path().apply {
-                                addRoundRect(RoundRect(0f, 0f, s, s, CornerRadius(cornerRadius, cornerRadius)))
-                            }
-                            clipPath(path) {
-                                drawImage(
-                                    image = bitmap,
-                                    dstOffset = IntOffset(0, 0),
-                                    dstSize = IntSize(s.toInt(), s.toInt()),
-                                    alpha = item.alpha
-                                )
-                            }
+                            // 保留原汁原味的蓝底
+                            drawImage(
+                                image = bitmap,
+                                dstOffset = IntOffset(0, 0),
+                                dstSize = IntSize(s.toInt(), s.toInt()),
+                                alpha = item.alpha
+                            )
                         }
                     }
                 }
